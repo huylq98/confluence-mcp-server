@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confluence MCP Setup</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="header">
+    <h1>Confluence MCP Server Setup</h1>
+    <p>Connect your Confluence to Claude Desktop in 3 easy steps</p>
+</div>
+
+<!-- Steps indicator -->
+<div class="steps-bar">
+    <div class="step-dot active" id="dot-1">
+        <span class="dot">1</span> Connect
+    </div>
+    <div class="step-line" id="line-1"></div>
+    <div class="step-dot" id="dot-2">
+        <span class="dot">2</span> Test
+    </div>
+    <div class="step-line" id="line-2"></div>
+    <div class="step-dot" id="dot-3">
+        <span class="dot">3</span> Deploy
+    </div>
+</div>
+
+<!-- Step 1: Credentials -->
+<div class="card section active" id="step-1">
+    <div class="form-group">
+        <label for="url">Confluence Server URL</label>
+        <input type="url" id="url" placeholder="https://confluence.yourcompany.com">
+    </div>
+
+    <label style="font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; display: block;">
+        Authentication Method
+    </label>
+    <div class="auth-toggle">
+        <button id="auth-basic-btn" class="active" onclick="setAuthMode('basic')">
+            Username &amp; Password
+        </button>
+        <button id="auth-token-btn" onclick="setAuthMode('token')">
+            Personal Access Token
+        </button>
+    </div>
+
+    <div id="basic-fields">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="your.username">
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Your password">
+        </div>
+    </div>
+
+    <div id="token-fields" style="display: none;">
+        <div class="form-group">
+            <label for="token">Personal Access Token</label>
+            <input type="password" id="token" placeholder="Paste your PAT here">
+        </div>
+    </div>
+
+    <div class="checkbox-group">
+        <input type="checkbox" id="ssl-verify" checked>
+        <label for="ssl-verify">Verify SSL Certificate</label>
+        <span class="hint">Uncheck for self-signed certs</span>
+    </div>
+
+    <button class="btn btn-primary" onclick="testConnection()">
+        Test Connection
+    </button>
+</div>
+
+<!-- Step 2: Test result -->
+<div class="card section" id="step-2">
+    <div id="test-result">
+        <!-- Filled by JS -->
+    </div>
+</div>
+
+<!-- Step 3: Save config -->
+<div class="card section" id="step-3">
+    <label style="font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; display: block;">
+        Configuration Preview
+    </label>
+    <div class="config-preview" id="config-preview"></div>
+
+    <div id="save-result"></div>
+
+    <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goToStep(1)">
+            &larr; Back
+        </button>
+        <button class="btn btn-success" id="save-btn" onclick="saveConfig()">
+            Save Configuration
+        </button>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

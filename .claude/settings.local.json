@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python -c \":*)",
+      "Bash(python -c \"from config import Config; print\\(''OK''\\)\")",
+      "Bash(timeout 3 python -c \":*)",
+      "Bash(python:*)",
+      "Bash(timeout 5 /c/Users/Admin/IdeaProjects/confluence-mcp-server/dist/ConfluenceMCPSetup.exe --serve)",
+      "Bash(echo \"Exit code: $?\")",
+      "Read(//c/Users/Admin/AppData/Local/**)",
+      "Read(//c/Users/Admin/AppData/Local/Programs/**)",
+      "Read(//c/Users/Admin/AppData/Local/Claude//**)",
+      "Bash(where claude:*)",
+      "Bash(where claude-desktop:*)",
+      "Bash(powershell -WindowStyle Hidden -Command \"Start-Process ''shell:AppsFolder\\\\Claude_pzs8sxrjxfjjc!Claude''\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(powershell -Command 'explorer.exe \"\"shell:AppsFolder\\\\Claude_pzs8sxrjxfjjc!Claude\"\"')",
+      "Bash(reg query:*)",
+      "Bash(powershell -Command \"Get-ItemProperty ''HKLM:\\\\SOFTWARE\\\\Microsoft\\\\EdgeUpdate\\\\Clients\\\\*'' -ErrorAction SilentlyContinue | Where-Object { $_.name -like ''*WebView*'' } | Format-List name, pv\")",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+# docker-compose.yml
+# Quick start: cp .env.example .env && edit .env && docker compose up -d
+
+services:
+  confluence-mcp:
+    build: .
+    container_name: confluence-mcp-server
+    restart: unless-stopped
+    ports:
+      - "${MCP_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      - MCP_TRANSPORT=http
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    # Mount .env as read-only for extra safety
+    volumes:
+      - ./.env:/app/.env:ro
+    # Optional: connect to your corporate network
+    # networks:
+    #   - corporate-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/mcp')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# Optional: if your Confluence is on a Docker network
+# networks:
+#   corporate-net:
+#     external: true

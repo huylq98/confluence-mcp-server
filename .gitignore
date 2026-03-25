@@ -1,0 +1,30 @@
+# ---- SECRETS (never commit these) ----
+.env
+*.pem
+*.key
+*.crt
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# ---- PyInstaller ----
+*.spec
+
+# ---- IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ---- Docker ----
+.docker/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
