@@ -8,25 +8,40 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 |---|---|
 | `search_confluence` | CQL-powered full-text search across all spaces |
 | `get_page` | Fetch full page content by numeric ID |
+| `get_page_by_url` | Parse a Confluence URL and fetch the page |
 | `get_page_by_title` | Find a page by exact title within a space |
 | `list_spaces` | List all accessible Confluence spaces |
 | `get_comments` | Retrieve page comments (inline + footer) |
 | `get_attachments` | List file attachments with download URLs |
 
-## Prerequisites
+---
+
+## Quick Start (Non-Technical Users)
+
+Download `ConfluenceMCPSetup.exe` from the [latest release](https://github.com/huylq33-280866/confluence-mcp-server/releases/latest).
+
+1. Double-click the exe to open the setup wizard
+2. Enter your Confluence URL, username, and password
+3. Click **Test Connection**
+4. Click **Save Configuration**
+5. Restart Claude Desktop
+
+No Python, no terminal, no config files to edit. The exe bundles everything needed.
+
+---
+
+## Developer Setup
+
+### Prerequisites
 
 - Python 3.11+
 - A Confluence Server (self-hosted) or Data Center instance
 - Confluence credentials: username/password **or** a Personal Access Token (PAT)
 
----
-
-## Quick Start
-
 ### 1. Clone & configure
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/huylq33-280866/confluence-mcp-server.git
 cd confluence-mcp-server
 
 # Create your secret .env file from the template
@@ -66,7 +81,11 @@ python server.py
 
 ## Deployment Options
 
-### Option A: Claude Desktop (local, per-user)
+### Option A: Desktop Configurator (easiest)
+
+Download `ConfluenceMCPSetup.exe` from the [Releases](https://github.com/huylq33-280866/confluence-mcp-server/releases/latest) page — see [Quick Start](#quick-start-non-technical-users) above.
+
+### Option B: Claude Desktop (manual config)
 
 Each team member runs the server locally. Edit your Claude Desktop config:
 
@@ -109,7 +128,7 @@ Or with `uv` (no venv needed):
 }
 ```
 
-### Option B: Claude Code
+### Option C: Claude Code
 
 ```bash
 # Add via CLI (HTTP remote server)
@@ -119,7 +138,7 @@ claude mcp add --transport http confluence http://your-server:8000/mcp
 claude mcp import-from-claude-desktop
 ```
 
-### Option C: Remote server for Claude.ai teams (recommended)
+### Option D: Remote server for Claude.ai teams
 
 Deploy once, share with your whole team via Claude.ai integrations.
 
@@ -244,19 +263,49 @@ CONFLUENCE_CA_BUNDLE=/path/to/your-company-ca.crt
 
 ---
 
+## Building the Desktop App
+
+To build `ConfluenceMCPSetup.exe` from source:
+
+```bash
+pip install -r requirements.txt
+pip install -r configurator/requirements.txt
+pip install pyinstaller
+python build.py
+```
+
+The output will be at `dist/ConfluenceMCPSetup.exe` (~25 MB). The exe bundles:
+- The GUI configurator (pywebview)
+- The MCP server
+- Python runtime and all dependencies
+
+Double-click = setup wizard. Claude Desktop runs it with `--serve` = MCP server.
+
+---
+
 ## Project Structure
 
 ```
 confluence-mcp-server/
-├── server.py              # MCP server with all 6 tools
-├── confluence_client.py   # Async Confluence REST API client
-├── config.py              # .env loader and validator
-├── requirements.txt       # Python dependencies
-├── .env.example           # Template — copy to .env
-├── .gitignore             # Protects .env from commits
-├── Dockerfile             # Container build (multi-stage)
-├── docker-compose.yml     # One-command deployment
-└── README.md              # This file
+├── main.py                    # Entry point (GUI or --serve mode)
+├── server.py                  # MCP server with 7 tools
+├── confluence_client.py       # Async Confluence REST API client
+├── config.py                  # .env loader and validator
+├── build.py                   # PyInstaller build script
+├── requirements.txt           # Server dependencies
+├── Dockerfile                 # Container build (multi-stage)
+├── docker-compose.yml         # One-command deployment
+├── configurator/
+│   ├── app.py                 # pywebview desktop GUI
+│   ├── config_writer.py       # Claude Desktop config read/write
+│   ├── connection_tester.py   # Confluence connectivity test
+│   ├── requirements.txt       # GUI dependencies
+│   └── assets/
+│       ├── index.html         # 3-step wizard UI
+│       ├── style.css          # Styling
+│       └── app.js             # Frontend logic
+└── scripts/
+    └── check_connection.py    # CLI health check
 ```
 
 ---
@@ -276,4 +325,4 @@ confluence-mcp-server/
 
 ## License
 
-MIT
+[MIT](LICENSE)
