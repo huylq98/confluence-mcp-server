@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir --target=/app/deps -r requirements.txt
 FROM python:3.12-slim
 
 LABEL maintainer="your-team@company.com"
-LABEL description="Atlassian Enterprise MCP Server for Claude AI (Confluence, Jira, Bitbucket)"
+LABEL description="Confluence MCP Server for Claude AI"
 
 # Security: run as non-root user
 RUN groupadd -r mcpuser && useradd -r -g mcpuser -d /app mcpuser
@@ -18,8 +18,7 @@ WORKDIR /app
 
 # Copy dependencies and source
 COPY --from=builder /app/deps /app/deps
-COPY config.py server.py ./
-COPY atlassian/ ./atlassian/
+COPY config.py server.py confluence_client.py ./
 
 # Add deps to Python path
 ENV PYTHONPATH=/app/deps:$PYTHONPATH

@@ -1,8 +1,8 @@
 """
-Confluence MCP Server — Single entry point.
+Confluence MCP Server — entry point.
 
 Double-click (no args)  → GUI configurator wizard
---serve flag            → MCP server over stdio (called by Claude Desktop)
+--serve flag            → MCP server (called by Claude Desktop)
 """
 
 import sys
