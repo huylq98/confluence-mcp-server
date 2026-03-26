@@ -2,9 +2,9 @@
 # Quick start: cp .env.example .env && edit .env && docker compose up -d
 
 services:
-  confluence-mcp:
+  atlassian-mcp:
     build: .
-    container_name: confluence-mcp-server
+    container_name: atlassian-mcp-server
     restart: unless-stopped
     ports:
       - "${MCP_PORT:-8000}:8000"
@@ -27,7 +27,7 @@ services:
       retries: 3
       start_period: 10s
 
-# Optional: if your Confluence is on a Docker network
+# Optional: if your Atlassian services are on a Docker network
 # networks:
 #   corporate-net:
 #     external: true
