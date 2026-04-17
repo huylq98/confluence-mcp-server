@@ -51,6 +51,7 @@ function switchView(name) {
 
   if (name === "monitor") {
     startStatusPolling();
+    refreshMonitorStats();
   } else {
     stopStatusPolling();
   }
@@ -365,13 +366,97 @@ async function refreshStatus() {
 function startStatusPolling() {
   if (statusTimer) return;
   refreshStatus();
-  statusTimer = setInterval(refreshStatus, 3000);
+  refreshMonitorStats();
+  statusTimer = setInterval(() => {
+    refreshStatus();
+    tickCounter += 1;
+    if (tickCounter % 2 === 0) refreshMonitorStats();
+  }, 3000);
 }
 
 function stopStatusPolling() {
   if (!statusTimer) return;
   clearInterval(statusTimer);
   statusTimer = null;
+}
+
+/* ── Monitor: stats rendering ───────────────────────────────────────── */
+let tickCounter = 0;
+
+async function refreshMonitorStats() {
+  let s;
+  try {
+    s = await invoke("get_stats");
+  } catch (_) {
+    return; // not configured yet, silent no-op
+  }
+  $("today-calls").textContent = s.todayCalls;
+  $("today-tokens").textContent = formatTokens(s.todayTokens);
+  $("today-errors").textContent = s.todayErrors;
+
+  renderTokenChart(s.sevenDayTokens);
+
+  const errList = $("errors-list");
+  errList.innerHTML = "";
+  for (const e of s.recentErrors) {
+    const li = document.createElement("li");
+    const date = new Date(e.ts * 1000);
+    const hhmm = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    li.textContent = `${hhmm} · ${e.tool} · ${e.status} · ${e.message}`;
+    errList.appendChild(li);
+  }
+  $("errors-summary").textContent = `Recent errors (${s.recentErrors.length})`;
+}
+
+function formatTokens(n) {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return (n / 1000).toFixed(n < 10000 ? 1 : 0) + "k";
+  return (n / 1_000_000).toFixed(1) + "M";
+}
+
+function renderTokenChart(days) {
+  const svg = $("chart-tokens");
+  const axis = $("chart-axis");
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  axis.innerHTML = "";
+
+  const max = Math.max(1, ...days.map((d) => d.tokens));
+  const total = days.reduce((a, d) => a + d.tokens, 0);
+  $("tokens-total").textContent = formatTokens(total);
+
+  const W = 300, H = 90, pad = 12;
+  const slot = (W - 2 * pad) / days.length;
+  const barW = Math.max(2, slot * 0.7);
+  const NS = "http://www.w3.org/2000/svg";
+
+  days.forEach((d, i) => {
+    const h = (d.tokens / max) * (H - 20);
+    const x = pad + i * slot + (slot - barW) / 2;
+    const y = H - 12 - h;
+    const rect = document.createElementNS(NS, "rect");
+    rect.setAttribute("x", x);
+    rect.setAttribute("y", y);
+    rect.setAttribute("width", barW);
+    rect.setAttribute("height", Math.max(1, h));
+    rect.setAttribute("rx", 2);
+    rect.setAttribute("fill", "#60a5fa");
+    if (d.tokens === 0) rect.setAttribute("opacity", "0.2");
+    svg.appendChild(rect);
+
+    const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dayLabel = document.createElement("span");
+    const dt = new Date(d.date + "T00:00:00");
+    dayLabel.textContent = dow[dt.getDay()];
+    axis.appendChild(dayLabel);
+  });
+
+  // baseline
+  const line = document.createElementNS(NS, "line");
+  line.setAttribute("x1", 0); line.setAttribute("x2", W);
+  line.setAttribute("y1", H - 12); line.setAttribute("y2", H - 12);
+  line.setAttribute("stroke", "rgba(100,100,120,0.4)");
+  line.setAttribute("stroke-width", "1");
+  svg.appendChild(line);
 }
 
 /* ── Invalidate verified state when inputs change ──────────────────── */

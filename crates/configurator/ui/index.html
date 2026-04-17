@@ -259,6 +259,33 @@
           </dl>
         </div>
 
+        <!-- Today tile -->
+        <div class="mini-card">
+          <div class="mini-card-label">Today</div>
+          <div class="mini-card-grid">
+            <div><div class="mini-card-num" id="today-calls">0</div><div class="mini-card-sub">tool calls</div></div>
+            <div><div class="mini-card-num" id="today-tokens">0</div><div class="mini-card-sub">tokens</div></div>
+            <div><div class="mini-card-num error" id="today-errors">0</div><div class="mini-card-sub">errors</div></div>
+          </div>
+        </div>
+
+        <!-- Token usage chart -->
+        <div class="mini-card">
+          <div class="mini-card-head">
+            <span class="mini-card-label">Token usage · last 7 days</span>
+            <span class="mini-card-total" id="tokens-total">0</span>
+          </div>
+          <svg id="chart-tokens" viewBox="0 0 300 90" preserveAspectRatio="none"></svg>
+          <div class="chart-axis" id="chart-axis"></div>
+          <div class="mini-card-note">Confluence content returned to Claude, estimated from character count (chars ÷ 4).</div>
+        </div>
+
+        <!-- Recent errors drawer -->
+        <details class="mini-card" id="errors-drawer">
+          <summary><span id="errors-summary">Recent errors (0)</span></summary>
+          <ul id="errors-list" class="errors-list"></ul>
+        </details>
+
         <div id="monitor-status" class="status" aria-live="polite"></div>
 
         <div class="monitor-actions">
