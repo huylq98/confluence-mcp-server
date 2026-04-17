@@ -373,6 +373,7 @@ checksum = "75984efb6ed102a0d42db99afb6c1948f0380d1d91808d5529916e6c08b49d8d"
 name = "configurator"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "confluence-core",
  "serde",
  "serde_json",
