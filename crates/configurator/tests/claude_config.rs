@@ -44,6 +44,7 @@ fn write_preserves_other_mcp_servers() {
         password: None,
         token: Some("t".into()),
         ssl_verify: true,
+        proxy_url: None,
     };
     write_confluence_entry(&path, &entry).unwrap();
 
@@ -62,6 +63,7 @@ fn malformed_config_is_backed_up_and_replaced() {
         username: None, password: None,
         token: Some("t".into()),
         ssl_verify: true,
+        proxy_url: None,
     };
     write_confluence_entry(&path, &entry).unwrap();
 

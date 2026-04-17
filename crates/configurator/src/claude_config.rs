@@ -11,6 +11,7 @@ pub struct ConfluenceEntry {
     pub password: Option<String>,
     pub token: Option<String>,
     pub ssl_verify: bool,
+    pub proxy_url: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -54,6 +55,10 @@ pub fn read_config(path: &Path) -> std::io::Result<ExistingConfig> {
                 .and_then(Value::as_str)
                 .map(|v| v != "false")
                 .unwrap_or(true),
+            proxy_url: env.pointer("/CONFLUENCE_PROXY_URL")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(String::from),
         });
     }
     Ok(out)
@@ -91,6 +96,9 @@ pub fn write_confluence_entry(path: &Path, entry: &ConfluenceEntry) -> std::io::
     }
     if !entry.ssl_verify {
         env.insert("CONFLUENCE_SSL_VERIFY".into(), json!("false"));
+    }
+    if let Some(proxy) = entry.proxy_url.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        env.insert("CONFLUENCE_PROXY_URL".into(), json!(proxy));
     }
 
     let server_entry = json!({

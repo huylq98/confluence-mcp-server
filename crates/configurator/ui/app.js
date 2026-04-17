@@ -99,6 +99,18 @@ async function init() {
     $("ssl-verify").checked = cfg.sslVerify ?? true;
     $("install-dir").value = cfg.installDir || "";
 
+    // Proxy: use saved value; otherwise prefill from system-detected proxy
+    // (without committing it until the user hits Test/Save).
+    const savedProxy = cfg.proxyUrl || "";
+    const detectedProxy = cfg.detectedProxyUrl || "";
+    $("proxy-url").value = savedProxy || detectedProxy;
+    const hint = $("proxy-hint");
+    if (!savedProxy && detectedProxy) {
+      hint.textContent = `Detected from Windows system proxy: ${detectedProxy}. Edit or clear if incorrect.`;
+    } else if (savedProxy) {
+      hint.textContent = "Saved proxy. Clear the field to go direct.";
+    }
+
     if (cfg.token) {
       document.querySelector('[data-target="auth-token"]').click();
     } else if (cfg.username) {
@@ -149,6 +161,7 @@ $("btn-test").addEventListener("click", async () => {
         password: $("password").value,
         token: $("token").value,
         sslVerify: $("ssl-verify").checked,
+        proxyUrl: $("proxy-url").value.trim(),
       },
     });
 
@@ -189,6 +202,7 @@ $("btn-save").addEventListener("click", async () => {
         token: $("token").value,
         sslVerify: $("ssl-verify").checked,
         installDir: $("install-dir").value,
+        proxyUrl: $("proxy-url").value.trim(),
       },
     });
 
@@ -304,7 +318,7 @@ function stopStatusPolling() {
 }
 
 /* ── Invalidate verified state when inputs change ──────────────────── */
-["url", "username", "password", "token"].forEach((id) => {
+["url", "username", "password", "token", "proxy-url"].forEach((id) => {
   $(id).addEventListener("input", () => {
     if (state === "tested") {
       state = "idle";

@@ -16,13 +16,15 @@ pub struct LoadedConfig {
     pub token: String,
     pub ssl_verify: bool,
     pub install_dir: String,
+    pub proxy_url: String,
+    pub detected_proxy_url: String,
 }
 
 #[tauri::command]
 pub async fn load_existing_config() -> Result<LoadedConfig, String> {
     let path = default_config_path();
     let existing = read_config(&path).map_err(|e| e.to_string())?;
-    let (url, username, password, token, ssl_verify, install_dir) = match &existing.confluence {
+    let (url, username, password, token, ssl_verify, install_dir, proxy_url) = match &existing.confluence {
         Some(c) => {
             let dir = PathBuf::from(&c.command).parent().map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_else(|| default_install_dir().to_string_lossy().to_string());
@@ -33,17 +35,20 @@ pub async fn load_existing_config() -> Result<LoadedConfig, String> {
                 c.token.clone().unwrap_or_default(),
                 c.ssl_verify,
                 dir,
+                c.proxy_url.clone().unwrap_or_default(),
             )
         }
         None => (
             String::new(), String::new(), String::new(), String::new(), true,
             default_install_dir().to_string_lossy().to_string(),
+            String::new(),
         ),
     };
+    let detected_proxy_url = crate::system_proxy::detect().unwrap_or_default();
     Ok(LoadedConfig {
         config_exists: existing.path_exists,
         confluence_configured: existing.confluence.is_some(),
-        url, username, password, token, ssl_verify, install_dir,
+        url, username, password, token, ssl_verify, install_dir, proxy_url, detected_proxy_url,
     })
 }
 
@@ -55,6 +60,8 @@ pub struct TestConnectionArgs {
     pub password: String,
     pub token: String,
     pub ssl_verify: bool,
+    #[serde(default)]
+    pub proxy_url: String,
 }
 
 #[derive(Serialize)]
@@ -83,6 +90,7 @@ pub async fn test_connection(args: TestConnectionArgs) -> Result<TestConnectionR
         token: (!args.token.is_empty()).then_some(args.token),
         ssl_verify: args.ssl_verify,
         ca_bundle: None,
+        proxy_url: (!args.proxy_url.trim().is_empty()).then(|| args.proxy_url.trim().to_string()),
         timeout: Duration::from_secs(15),
         rate_limit: 5,
         max_content_length: 50_000,
@@ -125,6 +133,8 @@ pub struct SaveConfigArgs {
     pub token: String,
     pub ssl_verify: bool,
     pub install_dir: String,
+    #[serde(default)]
+    pub proxy_url: String,
 }
 
 #[derive(Serialize)]
@@ -163,6 +173,7 @@ pub async fn save_config(args: SaveConfigArgs) -> Result<SaveConfigResult, Strin
         password: (!args.password.is_empty()).then_some(args.password),
         token: (!args.token.is_empty()).then_some(args.token),
         ssl_verify: args.ssl_verify,
+        proxy_url: (!args.proxy_url.trim().is_empty()).then(|| args.proxy_url.trim().to_string()),
     };
     let config_path = default_config_path();
     if let Err(e) = write_confluence_entry(&config_path, &entry) {

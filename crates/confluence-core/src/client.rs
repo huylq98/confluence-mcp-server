@@ -43,6 +43,15 @@ impl Client {
             builder = builder.add_root_certificate(cert);
         }
 
+        if let Some(p) = &config.proxy_url {
+            let trimmed = p.trim();
+            if !trimmed.is_empty() {
+                let proxy = reqwest::Proxy::all(trimmed)
+                    .map_err(|e| ConfluenceError::Config(format!("invalid proxy URL '{trimmed}': {e}")))?;
+                builder = builder.proxy(proxy);
+            }
+        }
+
         let http = builder.build()?;
 
         Ok(Self {

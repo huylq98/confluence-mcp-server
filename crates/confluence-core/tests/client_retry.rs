@@ -7,7 +7,7 @@ fn cfg(url: String) -> Config {
     Config {
         confluence_url: url,
         username: None, password: None, token: Some("t".into()),
-        ssl_verify: true, ca_bundle: None,
+        ssl_verify: true, ca_bundle: None, proxy_url: None,
         timeout: Duration::from_secs(30),
         rate_limit: 10, max_content_length: 50_000, default_search_limit: 10,
         log_level: "INFO".into(),

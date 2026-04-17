@@ -150,6 +150,23 @@
           </fieldset>
 
           <fieldset class="group">
+            <legend>Network</legend>
+            <label class="field">
+              <span class="field-label">HTTP proxy (optional)</span>
+              <input
+                type="text"
+                id="proxy-url"
+                placeholder="http://proxy.corp:3128"
+                spellcheck="false"
+                autocapitalize="off"
+              />
+              <span class="field-hint" id="proxy-hint">
+                Leave blank unless your company routes traffic through a proxy.
+              </span>
+            </label>
+          </fieldset>
+
+          <fieldset class="group">
             <legend>Install location</legend>
             <label class="field">
               <span class="field-label">Where to place the server binary</span>

@@ -11,6 +11,7 @@ fn cfg(mock_url: String, auth: (Option<&str>, Option<&str>, Option<&str>)) -> Co
         token: auth.2.map(String::from),
         ssl_verify: true,
         ca_bundle: None,
+        proxy_url: None,
         timeout: Duration::from_secs(5),
         rate_limit: 100,
         max_content_length: 50_000,
