@@ -90,6 +90,34 @@ impl Client {
         if !expand.is_empty() { q.push(("expand", expand.into())); }
         self.get_json("/rest/api/space", &q).await
     }
+
+    pub async fn search(&self, cql: &str, limit: u32, expand: &str) -> Result<Value, ConfluenceError> {
+        let mut q: Vec<(&str, String)> = vec![("cql", cql.into()), ("limit", limit.to_string())];
+        if !expand.is_empty() { q.push(("expand", expand.into())); }
+        self.get_json("/rest/api/content/search", &q).await
+    }
+
+    pub async fn get_page(&self, page_id: &str, expand: &str) -> Result<Value, ConfluenceError> {
+        let path = format!("/rest/api/content/{page_id}");
+        let q: Vec<(&str, String)> = if expand.is_empty() { vec![] } else { vec![("expand", expand.into())] };
+        self.get_json(&path, &q).await
+    }
+
+    pub async fn get_page_by_title(&self, space_key: &str, title: &str, expand: &str) -> Result<Value, ConfluenceError> {
+        let mut q: Vec<(&str, String)> = vec![
+            ("spaceKey", space_key.into()),
+            ("title", title.into()),
+        ];
+        if !expand.is_empty() { q.push(("expand", expand.into())); }
+        self.get_json("/rest/api/content", &q).await
+    }
+
+    pub async fn get_child(&self, page_id: &str, child_type: &str, expand: &str, limit: u32) -> Result<Value, ConfluenceError> {
+        let path = format!("/rest/api/content/{page_id}/child/{child_type}");
+        let mut q: Vec<(&str, String)> = vec![("limit", limit.to_string())];
+        if !expand.is_empty() { q.push(("expand", expand.into())); }
+        self.get_json(&path, &q).await
+    }
 }
 
 // Silence unused-status warning for future tasks
