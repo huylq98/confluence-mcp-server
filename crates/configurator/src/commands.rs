@@ -490,7 +490,24 @@ fn format_error_chain(err: &ConfluenceError) -> String {
         }
         src = e.source();
     }
-    parts.join(" → ")
+    let base = parts.join(" → ");
+    let lower = base.to_lowercase();
+
+    let mut hints: Vec<&str> = Vec::new();
+    if lower.contains("timed out") || lower.contains("timeout") {
+        hints.push("Connection timed out — check the URL and that you're on VPN if the server is internal.");
+    }
+    if lower.contains("invalid") && lower.contains("certificate") {
+        hints.push("CA bundle invalid — re-check the path, and confirm the file is PEM-encoded.");
+    }
+    if lower.contains("dns error") || lower.contains("failed to lookup") {
+        hints.push("DNS lookup failed — the hostname isn't resolving. Check spelling and DNS/VPN.");
+    }
+    if hints.is_empty() {
+        base
+    } else {
+        format!("{base}\n\nHint:\n- {}", hints.join("\n- "))
+    }
 }
 
 fn url_host(s: &str) -> Option<String> {
@@ -554,5 +571,12 @@ mod tests {
         assert_eq!(esc_md("a|b"), "a\\|b");
         assert_eq!(esc_md("no pipes"), "no pipes");
         assert_eq!(esc_md("|||"), "\\|\\|\\|");
+    }
+
+    #[test]
+    fn format_error_chain_adds_timeout_hint() {
+        let err = ConfluenceError::Http { status: 0, message: "request timed out after 15s".into() };
+        let out = format_error_chain(&err);
+        assert!(out.contains("Connection timed out"), "got: {out}");
     }
 }
