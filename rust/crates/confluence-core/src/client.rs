@@ -2,6 +2,7 @@ use crate::{Config, ConfluenceError};
 use reqwest::{header::{HeaderMap, HeaderValue, AUTHORIZATION, ACCEPT}, Method, StatusCode};
 use serde_json::Value;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Semaphore;
 
 #[derive(Clone)]
@@ -52,18 +53,35 @@ impl Client {
     }
 
     async fn get_json(&self, path: &str, query: &[(&str, String)]) -> Result<Value, ConfluenceError> {
-        let _permit = self.sem.acquire().await.unwrap();
         let url = format!("{}{}", self.base_url, path);
-        let response = self.http.request(Method::GET, &url).query(query).send().await?;
-        let status = response.status();
-        if status.is_success() {
-            return Ok(response.json().await?);
+        let mut attempt = 0u32;
+        let max_retries = 3u32;
+
+        loop {
+            let _permit = self.sem.acquire().await.unwrap();
+            let response = self.http.request(Method::GET, &url).query(query).send().await?;
+            drop(_permit);
+
+            let status = response.status();
+            if status.is_success() {
+                return Ok(response.json().await?);
+            }
+
+            let retryable = matches!(status.as_u16(), 429 | 503);
+            if retryable && attempt < max_retries {
+                let backoff_ms = 1000u64 * 2u64.pow(attempt);
+                tracing::warn!(status = %status, attempt, backoff_ms, "retrying after rate limit / service unavailable");
+                tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+                attempt += 1;
+                continue;
+            }
+
+            let message = response.text().await.unwrap_or_default();
+            return Err(ConfluenceError::Http {
+                status: status.as_u16(),
+                message: if message.is_empty() { status.canonical_reason().unwrap_or("").into() } else { message },
+            });
         }
-        let message = response.text().await.unwrap_or_default();
-        Err(ConfluenceError::Http {
-            status: status.as_u16(),
-            message: if message.is_empty() { status.canonical_reason().unwrap_or("").into() } else { message },
-        })
     }
 
     pub async fn list_spaces(&self, space_type: Option<&str>, limit: u32, expand: &str) -> Result<Value, ConfluenceError> {
