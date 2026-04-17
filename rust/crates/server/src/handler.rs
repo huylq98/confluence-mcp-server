@@ -19,6 +19,14 @@ pub struct ListSpacesArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetAttachmentsArgs {
+    /// The numeric page ID.
+    pub page_id: String,
+    /// Maximum attachments to return (default 50).
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetCommentsArgs {
     /// The numeric page ID.
     pub page_id: String,
@@ -82,6 +90,18 @@ impl ConfluenceServer {
 
     pub fn confluence_url(&self) -> &str {
         &self.config.confluence_url
+    }
+
+    #[tool(description = "List file attachments on a Confluence page with download URLs.")]
+    async fn get_attachments(
+        &self,
+        Parameters(args): Parameters<GetAttachmentsArgs>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let limit = args.limit.unwrap_or(50);
+        match self.client.get_child(&args.page_id, "attachment", "version", limit).await {
+            Ok(data) => Ok(CallToolResult::success(vec![Content::text(crate::tools::get_attachments::format(&data, &self.config.confluence_url))])),
+            Err(e)   => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
+        }
     }
 
     #[tool(description = "Get comments on a Confluence page (inline and footer).")]
