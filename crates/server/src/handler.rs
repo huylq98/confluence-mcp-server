@@ -1,5 +1,5 @@
 use anyhow::Result;
-use confluence_core::{Client, Config};
+use confluence_core::{Client, Config, ConfluenceError};
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
@@ -74,7 +74,7 @@ pub struct SearchArgs {
 pub struct ConfluenceServer {
     pub(crate) client: Arc<Client>,
     pub(crate) config: Arc<Config>,
-    recorder: Arc<Option<Recorder>>,
+    recorder: Option<Arc<Recorder>>,
     tool_router: ToolRouter<ConfluenceServer>,
 }
 
@@ -95,7 +95,7 @@ impl ConfluenceServer {
         }
         config.validate()?;
         let client = Client::new(config.clone())?;
-        let recorder = Arc::new(Recorder::from_current_exe());
+        let recorder = Recorder::from_current_exe().map(Arc::new);
         Ok(Self {
             client: Arc::new(client),
             config: Arc::new(config),
@@ -119,19 +119,20 @@ impl ConfluenceServer {
         text: &str,
         status: &str,
     ) {
-        let Some(rec) = (*self.recorder).as_ref() else { return };
+        let Some(rec) = self.recorder.as_ref() else { return };
+        let out_chars = text.chars().count();
         rec.record_history(&HistoryEntry {
             ts: Self::now_ts(),
             tool,
             args,
-            out_chars: text.chars().count(),
-            tokens_est: text.chars().count() / 4,
+            out_chars,
+            tokens_est: out_chars / 4,
             status,
         });
     }
 
     fn record_error(&self, tool: &'static str, status: &str, message: &str) {
-        let Some(rec) = (*self.recorder).as_ref() else { return };
+        let Some(rec) = self.recorder.as_ref() else { return };
         let snippet: String = message.chars().take(300).collect();
         rec.record_error(&ErrorEntry {
             ts: Self::now_ts(),
@@ -139,6 +140,18 @@ impl ConfluenceServer {
             status,
             message: &snippet,
         });
+    }
+
+    fn handle_err(
+        &self,
+        tool: &'static str,
+        e: &ConfluenceError,
+    ) -> (String, String) {
+        let msg = crate::format::error_response(e);
+        let code = e.status_code();
+        let status = if code > 0 { code.to_string() } else { "error".into() };
+        self.record_error(tool, &status, &msg);
+        (msg, status)
     }
 
     #[tool(description = "List file attachments on a Confluence page with download URLs.")]
@@ -150,13 +163,7 @@ impl ConfluenceServer {
         let page_id = args.page_id.clone();
         let (text, status) = match self.client.get_child(&page_id, "attachment", "version", limit).await {
             Ok(data) => (crate::tools::get_attachments::format(&data, &self.config.confluence_url), "ok".to_string()),
-            Err(e) => {
-                let msg = crate::format::error_response(&e);
-                let code = e.status_code();
-                let status = if code > 0 { code.to_string() } else { "error".into() };
-                self.record_error("get_attachments", &status, &msg);
-                (msg, status)
-            }
+            Err(e) => self.handle_err("get_attachments", &e),
         };
         self.record("get_attachments", serde_json::json!({"page_id": page_id}), &text, &status);
         Ok(CallToolResult::success(vec![Content::text(text)]))
@@ -171,13 +178,7 @@ impl ConfluenceServer {
         let page_id = args.page_id.clone();
         let (text, status) = match self.client.get_child(&page_id, "comment", "body.view,version,extensions.inlineProperties", limit).await {
             Ok(data) => (crate::tools::get_comments::format(&data), "ok".to_string()),
-            Err(e) => {
-                let msg = crate::format::error_response(&e);
-                let code = e.status_code();
-                let status = if code > 0 { code.to_string() } else { "error".into() };
-                self.record_error("get_comments", &status, &msg);
-                (msg, status)
-            }
+            Err(e) => self.handle_err("get_comments", &e),
         };
         self.record("get_comments", serde_json::json!({"page_id": page_id}), &text, &status);
         Ok(CallToolResult::success(vec![Content::text(text)]))
@@ -199,13 +200,7 @@ impl ConfluenceServer {
             UrlResolution::TinyUrl(_)  => (format_tiny_url(), "ok".to_string()),
             UrlResolution::ById(id) => match self.client.get_page(&id, &expand).await {
                 Ok(page) => (crate::tools::get_page::format(&page, body_format, true, &self.config.confluence_url, self.config.max_content_length), "ok".to_string()),
-                Err(e) => {
-                    let msg = crate::format::error_response(&e);
-                    let code = e.status_code();
-                    let status = if code > 0 { code.to_string() } else { "error".into() };
-                    self.record_error("get_page_by_url", &status, &msg);
-                    (msg, status)
-                }
+                Err(e) => self.handle_err("get_page_by_url", &e),
             },
             UrlResolution::BySpaceTitle { space, title } => match self.client.get_page_by_title(&space, &title, &expand).await {
                 Ok(data) => {
@@ -220,13 +215,7 @@ impl ConfluenceServer {
                     };
                     (text, "ok".to_string())
                 }
-                Err(e) => {
-                    let msg = crate::format::error_response(&e);
-                    let code = e.status_code();
-                    let status = if code > 0 { code.to_string() } else { "error".into() };
-                    self.record_error("get_page_by_url", &status, &msg);
-                    (msg, status)
-                }
+                Err(e) => self.handle_err("get_page_by_url", &e),
             },
         };
         self.record("get_page_by_url", args_json, &text, &status);
@@ -251,13 +240,7 @@ impl ConfluenceServer {
                 };
                 (text, "ok".to_string())
             }
-            Err(e) => {
-                let msg = crate::format::error_response(&e);
-                let code = e.status_code();
-                let status = if code > 0 { code.to_string() } else { "error".into() };
-                self.record_error("get_page_by_title", &status, &msg);
-                (msg, status)
-            }
+            Err(e) => self.handle_err("get_page_by_title", &e),
         };
         self.record("get_page_by_title", args_json, &text, &status);
         Ok(CallToolResult::success(vec![Content::text(text)]))
@@ -284,13 +267,7 @@ impl ConfluenceServer {
                 crate::tools::get_page::format(&page, body_format, include_body, &self.config.confluence_url, self.config.max_content_length),
                 "ok".to_string(),
             ),
-            Err(e) => {
-                let msg = crate::format::error_response(&e);
-                let code = e.status_code();
-                let status = if code > 0 { code.to_string() } else { "error".into() };
-                self.record_error("get_page", &status, &msg);
-                (msg, status)
-            }
+            Err(e) => self.handle_err("get_page", &e),
         };
         self.record("get_page", serde_json::json!({"page_id": page_id}), &text, &status);
         Ok(CallToolResult::success(vec![Content::text(text)]))
@@ -304,13 +281,7 @@ impl ConfluenceServer {
         let limit = args.limit.unwrap_or(10).clamp(1, 50);
         let (text, status) = match self.client.search(&args.cql, limit, "space,version,metadata.labels").await {
             Ok(data) => (crate::tools::search_confluence::format(&data, &self.config.confluence_url), "ok".to_string()),
-            Err(e) => {
-                let msg = crate::format::error_response(&e);
-                let code = e.status_code();
-                let status = if code > 0 { code.to_string() } else { "error".into() };
-                self.record_error("search_confluence", &status, &msg);
-                (msg, status)
-            }
+            Err(e) => self.handle_err("search_confluence", &e),
         };
         self.record("search_confluence", serde_json::json!({}), &text, &status);
         Ok(CallToolResult::success(vec![Content::text(text)]))
@@ -328,13 +299,7 @@ impl ConfluenceServer {
         let limit = args.limit.unwrap_or(50);
         let (text, status) = match self.client.list_spaces(space_type, limit, "description.plain").await {
             Ok(data) => (crate::tools::list_spaces::format(&data), "ok".to_string()),
-            Err(e) => {
-                let msg = crate::format::error_response(&e);
-                let code = e.status_code();
-                let status = if code > 0 { code.to_string() } else { "error".into() };
-                self.record_error("list_spaces", &status, &msg);
-                (msg, status)
-            }
+            Err(e) => self.handle_err("list_spaces", &e),
         };
         self.record("list_spaces", serde_json::json!({}), &text, &status);
         Ok(CallToolResult::success(vec![Content::text(text)]))
@@ -361,5 +326,38 @@ impl ServerHandler for ConfluenceServer {
                 always use get_page_by_url to fetch the page content directly from the link.".into()
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use confluence_core::ConfluenceError;
+
+    #[test]
+    fn status_encoding_http_vs_client_error() {
+        // Real HTTP status (403) -> "403"
+        let http_err = ConfluenceError::Http { status: 403, message: "denied".into() };
+        assert_eq!(http_err.status_code(), 403);
+
+        // Non-HTTP error path (reqwest network failure) should have status_code() == 0
+        // and encode as "error" in handle_err. We assert the Http variant encoding here;
+        // the "error" branch is exercised by the recorder integration (covered separately).
+        let status = if http_err.status_code() > 0 {
+            http_err.status_code().to_string()
+        } else {
+            "error".to_string()
+        };
+        assert_eq!(status, "403");
+
+        // Client-side error (no HTTP status) encodes as "error".
+        // Construct a simple variant that returns status_code() == 0.
+        let cfg_err = ConfluenceError::Config("bad config".into());
+        assert_eq!(cfg_err.status_code(), 0);
+        let status = if cfg_err.status_code() > 0 {
+            cfg_err.status_code().to_string()
+        } else {
+            "error".to_string()
+        };
+        assert_eq!(status, "error");
     }
 }
