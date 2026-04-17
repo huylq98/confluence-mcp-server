@@ -199,6 +199,13 @@ Follows existing project convention: Rust unit + integration tests are expected 
 
 ## Open Questions
 
-1. **GitHub account for release artifacts.** The landing page lives at `huylq98.github.io/confluence-mcp-server` (user-confirmed). Current git commits are authored by `huylq33`. Does the repo itself move to the `huylq98` account (so the landing page and the releases API share one owner), or does the landing page stay on `huylq98` while releases are pulled from `huylq33`? Decision affects the updater's API URL and the landing page's Download button URL. Recommendation: put both under `huylq98` for consistency — simpler mental model, one GitHub account to manage.
+None. User confirmed: phased sequencing (A), download host = GitHub Pages, analyzer tier = B, hero copy = "Connect Claude Desktop to Confluence", single column chart only, no tool-calls chart, no avg latency metric, banner → external download (no in-app replace), **repo and landing page both live under `huylq98`** (consolidation — one GitHub account, shared release artifacts).
 
-2. Otherwise no blockers. User confirmed: phased sequencing (A), download host = GitHub Pages, analyzer tier = B, hero copy = "Connect Claude Desktop to Confluence", single column chart only, no tool-calls chart, no avg latency metric, banner → external download (no in-app replace).
+## Prerequisite Before v0.3 Ships
+
+Transfer the repo (or create a new one) under `huylq98/confluence-mcp-server` so that:
+- Landing page served from `huylq98.github.io/confluence-mcp-server`.
+- Release API: `api.github.com/repos/huylq98/confluence-mcp-server/releases/latest`.
+- Download URL: `github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.exe`.
+
+Not a v0.2 blocker — v0.2 work can proceed under the current account; the account move only needs to be done before v0.3's updater URL is compiled into the wizard.
