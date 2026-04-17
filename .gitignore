@@ -13,7 +13,7 @@ dist/
 *.stackdump
 
 # ---- Build tools (downloaded locally) ----
-tools/
+/tools/
 
 # ---- Worktrees ----
 .worktrees/

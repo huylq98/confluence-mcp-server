@@ -4,7 +4,6 @@
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-$Rust = Join-Path $Root "rust"
 $Dist = Join-Path $Root "dist"
 $Upx  = Join-Path $Root "tools/upx-4.2.4-win64/upx.exe"
 
@@ -13,27 +12,27 @@ if (-not (Test-Path $Upx)) {
 }
 
 Write-Host "== 1/5 Building server crate (release) =="
-Push-Location $Rust
+Push-Location $Root
 cargo build --release -p server
 Pop-Location
 
-$ServerBin = Join-Path $Rust "target/release/confluence-mcp-server.exe"
+$ServerBin = Join-Path $Root "target/release/confluence-mcp-server.exe"
 if (-not (Test-Path $ServerBin)) { Write-Error "server binary missing at $ServerBin" }
 
 Write-Host "== 2/5 UPX-compressing server binary =="
 & $Upx --best $ServerBin
 
 Write-Host "== 3/5 Copying server binary into configurator resources =="
-$Resources = Join-Path $Rust "crates/configurator/resources"
+$Resources = Join-Path $Root "crates/configurator/resources"
 New-Item -ItemType Directory -Force -Path $Resources | Out-Null
 Copy-Item $ServerBin (Join-Path $Resources "confluence-mcp-server.exe") -Force
 
 Write-Host "== 4/5 Building configurator crate (release) =="
-Push-Location $Rust
+Push-Location $Root
 cargo build --release -p configurator
 Pop-Location
 
-$WizardBin = Join-Path $Rust "target/release/ConfluenceMCPSetup.exe"
+$WizardBin = Join-Path $Root "target/release/ConfluenceMCPSetup.exe"
 if (-not (Test-Path $WizardBin)) { Write-Error "wizard binary missing at $WizardBin" }
 
 Write-Host "== 5/5 UPX-compressing wizard binary =="
