@@ -4,25 +4,67 @@ const openDialog = window.__TAURI__.dialog.open;
 const $ = (id) => document.getElementById(id);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-const statusEl = $("status");
-const successPanel = $("success");
-const successPath = $("success-path");
+const statusEl = $("status"); // setup-view status strip
+const monitorStatusEl = $("monitor-status"); // monitor-view status strip
 
-let state = "idle"; // idle → testing → tested → saving → done
+let state = "idle"; // idle → testing → tested → saving
+let currentView = "setup";
+let statusTimer = null;
 
+/* ── Generic status helper (used on whichever view is active) ───────── */
 function setStatus(kind, msg) {
+  const el = currentView === "monitor" ? monitorStatusEl : statusEl;
+  const other = currentView === "monitor" ? statusEl : monitorStatusEl;
+  // Clear the other view's status so switching doesn't show stale messages
+  other.className = "status";
+  other.textContent = "";
+
   if (!msg) {
-    statusEl.className = "status";
-    statusEl.textContent = "";
+    el.className = "status";
+    el.textContent = "";
     return;
   }
-  // Re-trigger animation if we're replacing an existing status
-  statusEl.classList.remove("visible");
-  void statusEl.offsetWidth; // force reflow
-  statusEl.className = `status visible ${kind}`;
-  statusEl.textContent = msg;
+  el.classList.remove("visible");
+  void el.offsetWidth; // re-trigger animation
+  el.className = `status visible ${kind}`;
+  el.textContent = msg;
 }
 
+/* ── View switching ─────────────────────────────────────────────────── */
+function switchView(name) {
+  if (name === currentView) return;
+  $$(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
+  $$(".view-tab").forEach((t) => {
+    const on = t.dataset.view === name;
+    t.classList.toggle("active", on);
+    t.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  currentView = name;
+  // Clear stale status from the view we just left
+  setStatus("", "");
+
+  if (name === "monitor") {
+    startStatusPolling();
+  } else {
+    stopStatusPolling();
+  }
+}
+
+function enableMonitorTab(enabled) {
+  const tab = document.querySelector('.view-tab[data-view="monitor"]');
+  tab.disabled = !enabled;
+  if (enabled) tab.removeAttribute("title");
+  else tab.title = "Available after saving credentials";
+}
+
+$$(".view-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    if (tab.disabled) return;
+    switchView(tab.dataset.view);
+  });
+});
+
+/* ── Step progress (setup view) ─────────────────────────────────────── */
 function setStep(n, stateName) {
   $$(".step").forEach((el) => {
     const num = parseInt(el.dataset.step, 10);
@@ -32,7 +74,7 @@ function setStep(n, stateName) {
   });
 }
 
-// Segment (tab) switching
+/* ── Auth segment (inside setup view) ───────────────────────────────── */
 $$(".seg-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     $$(".seg-btn").forEach((b) => {
@@ -46,7 +88,7 @@ $$(".seg-btn").forEach((btn) => {
   });
 });
 
-// Initial load — pull existing config if it's there
+/* ── Initial load ───────────────────────────────────────────────────── */
 async function init() {
   try {
     const cfg = await invoke("load_existing_config");
@@ -64,18 +106,26 @@ async function init() {
     }
 
     if (cfg.confluenceConfigured) {
-      setStatus(
-        "info",
-        "Existing configuration loaded. Adjust and save to update it."
-      );
-      startStatusPolling();
+      enableMonitorTab(true);
+      paintMonitorDetails(cfg);
+      switchView("monitor");
     }
   } catch (e) {
     setStatus("err", "Could not read existing config: " + e);
   }
 }
 
-// Folder picker
+function paintMonitorDetails(cfg) {
+  $("detail-url").textContent = cfg.url || "—";
+  $("detail-auth").textContent = cfg.token
+    ? "Personal access token"
+    : cfg.username
+      ? `User — ${cfg.username}`
+      : "—";
+  $("detail-path").textContent = cfg.installDir || "—";
+}
+
+/* ── Folder picker ─────────────────────────────────────────────────── */
 $("pick-dir").addEventListener("click", async () => {
   const picked = await openDialog({
     directory: true,
@@ -84,7 +134,7 @@ $("pick-dir").addEventListener("click", async () => {
   if (picked) $("install-dir").value = picked;
 });
 
-// Test connection
+/* ── Test connection ───────────────────────────────────────────────── */
 $("btn-test").addEventListener("click", async () => {
   state = "testing";
   setStep(2, "active");
@@ -123,7 +173,7 @@ $("btn-test").addEventListener("click", async () => {
   }
 });
 
-// Save & finish
+/* ── Save & finish ─────────────────────────────────────────────────── */
 $("btn-save").addEventListener("click", async () => {
   state = "saving";
   setStatus("info", "Writing configuration…");
@@ -143,10 +193,14 @@ $("btn-save").addEventListener("click", async () => {
     });
 
     if (result.success) {
-      state = "done";
+      state = "idle";
       setStep(3, "done");
-      startStatusPolling();
-      showSuccess(result);
+      // Repaint the monitor view with the new config and switch to it.
+      const latest = await invoke("load_existing_config");
+      enableMonitorTab(true);
+      paintMonitorDetails(latest);
+      switchView("monitor");
+      setStatus("ok", result.message);
     } else {
       state = "tested";
       setStatus("err", result.message);
@@ -161,33 +215,11 @@ $("btn-save").addEventListener("click", async () => {
   }
 });
 
-// Remove (prominent "Turn off & remove" in the status panel)
-async function handleRemove() {
-  const ok = confirm(
-    "Turn off Confluence MCP and remove it from Claude Desktop?\n\n" +
-      "This unregisters the MCP server entry, stops any running instance, " +
-      "and deletes the extracted server binary. Restart Claude Desktop afterwards."
-  );
-  if (!ok) return;
+/* ── Monitor actions ───────────────────────────────────────────────── */
+$("btn-edit-creds").addEventListener("click", () => {
+  switchView("setup");
+});
 
-  try {
-    // Kill the running process first, best-effort
-    await invoke("stop_server").catch(() => null);
-    const result = await invoke("remove_config", {
-      installDir: $("install-dir").value,
-    });
-    setStatus(result.success ? "ok" : "err", result.message);
-    if (result.success) {
-      await refreshStatus();
-    }
-  } catch (e) {
-    setStatus("err", "Unexpected error: " + e);
-  }
-}
-
-$("btn-remove-top").addEventListener("click", handleRemove);
-
-// Stop (kill the running process; Claude Desktop may relaunch)
 $("btn-stop").addEventListener("click", async () => {
   try {
     const result = await invoke("stop_server");
@@ -198,87 +230,80 @@ $("btn-stop").addEventListener("click", async () => {
   }
 });
 
-function showSuccess(result) {
-  successPanel.classList.remove("hidden");
-  successPanel.setAttribute("aria-hidden", "false");
-  if (result && result.serverPath) {
-    successPath.textContent = "Server installed at\n" + result.serverPath;
-  }
-}
+$("btn-remove").addEventListener("click", async () => {
+  const ok = confirm(
+    "Turn off Confluence MCP and remove it from Claude Desktop?\n\n" +
+      "Stops any running instance, unregisters the MCP server entry, and deletes the extracted binary.\n\n" +
+      "You must restart Claude Desktop afterwards for the change to take effect."
+  );
+  if (!ok) return;
 
-function hideSuccess() {
-  successPanel.classList.add("hidden");
-  successPanel.setAttribute("aria-hidden", "true");
-}
-
-$("btn-edit-again").addEventListener("click", () => {
-  hideSuccess();
-  // Reset to idle so the user can re-test before re-saving.
-  state = "idle";
-  setStep(1, "active");
-  setStatus("", "");
-  $("btn-save").disabled = true;
-  refreshStatus();
-});
-
-$("btn-close").addEventListener("click", () => {
-  // Tauri 2 window close — requires the core:window:allow-close permission.
   try {
-    if (window.__TAURI__?.window?.getCurrentWindow) {
-      window.__TAURI__.window.getCurrentWindow().close();
-    } else if (window.__TAURI__?.window?.getCurrent) {
-      window.__TAURI__.window.getCurrent().close();
+    await invoke("stop_server").catch(() => null);
+    const result = await invoke("remove_config", {
+      installDir: $("install-dir").value,
+    });
+    if (result.success) {
+      // Configuration no longer exists — hide the monitor tab and send user back to setup.
+      enableMonitorTab(false);
+      switchView("setup");
+      setStatus("ok", result.message);
     } else {
-      window.close();
+      setStatus("err", result.message);
     }
-  } catch {
-    window.close();
+  } catch (e) {
+    setStatus("err", "Unexpected error: " + e);
   }
 });
 
-// ── Server status polling ──────────────────────────────────────────
-const statusPanel = $("status-panel");
+/* ── Status polling ─────────────────────────────────────────────────── */
 const statusDot = $("status-dot");
 const statusText = $("status-text");
 const statusMeta = $("status-meta");
+const stateWord = $("monitor-state-word");
 
 async function refreshStatus() {
   try {
     const s = await invoke("server_status");
-
-    if (!s.configured) {
-      statusPanel.classList.add("hidden");
-      return;
-    }
-    statusPanel.classList.remove("hidden");
-
     if (s.running) {
       statusDot.dataset.state = "running";
       statusText.textContent = "Running";
       statusMeta.textContent = `PID ${s.pid} · ${s.memoryMb} MB`;
+      stateWord.textContent = "running";
+      stateWord.className = "running";
       $("btn-stop").disabled = false;
     } else {
       statusDot.dataset.state = "stopped";
       statusText.textContent = "Not running";
-      statusMeta.textContent = "Waiting for Claude Desktop to launch it.";
+      statusMeta.textContent =
+        "The MCP server is spawned by Claude Desktop on startup — quit and relaunch Claude Desktop to see it here.";
+      stateWord.textContent = "stopped";
+      stateWord.className = "stopped";
       $("btn-stop").disabled = true;
     }
   } catch (e) {
-    statusDot.dataset.state = "unknown";
+    statusDot.dataset.state = "unavailable";
     statusText.textContent = "Status unavailable";
     statusMeta.textContent = String(e);
+    stateWord.textContent = "unavailable";
+    stateWord.className = "unavailable";
+    $("btn-stop").disabled = true;
   }
 }
 
-let statusTimer = null;
 function startStatusPolling() {
   if (statusTimer) return;
   refreshStatus();
   statusTimer = setInterval(refreshStatus, 3000);
 }
 
-// If the user edits any auth/URL input after a successful test,
-// invalidate the tested state so they're forced to re-test.
+function stopStatusPolling() {
+  if (!statusTimer) return;
+  clearInterval(statusTimer);
+  statusTimer = null;
+}
+
+/* ── Invalidate verified state when inputs change ──────────────────── */
 ["url", "username", "password", "token"].forEach((id) => {
   $(id).addEventListener("input", () => {
     if (state === "tested") {
@@ -299,7 +324,7 @@ $("ssl-verify").addEventListener("change", () => {
   }
 });
 
-// Enter submits the most advanced action available
+/* ── Enter submits the most advanced available action ──────────────── */
 $("wizard").addEventListener("keydown", (e) => {
   if (e.key !== "Enter" || e.target.tagName === "BUTTON") return;
   e.preventDefault();

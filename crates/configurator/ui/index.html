@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Confluence MCP · Setup</title>
+    <title>Confluence MCP</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -24,192 +24,219 @@
             <rect x="1" y="8" width="5" height="5" fill="currentColor" opacity=".55" />
             <rect x="8" y="8" width="5" height="5" fill="currentColor" opacity=".25" />
           </svg>
-          <span>Confluence&nbsp;MCP · Setup</span>
+          <span>Confluence&nbsp;MCP</span>
         </div>
-        <span class="edition">No.&nbsp;01 — v0.1</span>
+        <nav class="view-tabs" role="tablist" aria-label="Views">
+          <button
+            type="button"
+            role="tab"
+            class="view-tab active"
+            data-view="setup"
+            aria-selected="true"
+          >
+            Setup
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="view-tab"
+            data-view="monitor"
+            aria-selected="false"
+            disabled
+            title="Available after saving credentials"
+          >
+            Monitor
+          </button>
+        </nav>
       </header>
 
-      <section class="intro">
-        <h1>
-          Connect Claude Desktop<br />
-          <em>to your wiki.</em>
-        </h1>
-        <p class="lede">A one-time setup, typically under two minutes.</p>
-      </section>
+      <!-- ═══════════ SETUP VIEW ═══════════ -->
+      <section id="view-setup" class="view active" role="tabpanel">
+        <section class="intro">
+          <h1>
+            Connect Claude Desktop<br />
+            <em>to your wiki.</em>
+          </h1>
+          <p class="lede">A one-time setup, typically under two minutes.</p>
+        </section>
 
-      <nav class="progress" aria-label="Setup progress">
-        <div class="step" data-step="1" data-state="active">
-          <span class="num">01</span>
-          <span class="label">Connect</span>
-        </div>
-        <div class="step" data-step="2" data-state="upcoming">
-          <span class="num">02</span>
-          <span class="label">Verify</span>
-        </div>
-        <div class="step" data-step="3" data-state="upcoming">
-          <span class="num">03</span>
-          <span class="label">Install</span>
-        </div>
-      </nav>
-
-      <section id="status-panel" class="status-panel hidden" aria-live="polite">
-        <div class="status-panel-head">
-          <span class="status-panel-label">Server status</span>
-          <span class="status-dot" id="status-dot" data-state="unknown"></span>
-          <span class="status-text" id="status-text">checking…</span>
-        </div>
-        <div class="status-panel-meta" id="status-meta"></div>
-        <div class="status-panel-actions">
-          <button type="button" id="btn-stop" class="ghost" disabled>
-            Stop process
-          </button>
-          <button type="button" id="btn-remove-top" class="danger">
-            Turn off &amp; remove
-          </button>
-        </div>
-        <p class="status-panel-hint">
-          <em>Stop</em> kills the running process — Claude Desktop may relaunch it.
-          <em>Turn off &amp; remove</em> unregisters it permanently (restart Claude Desktop after).
-        </p>
-      </section>
-
-      <form id="wizard" autocomplete="off" novalidate>
-        <fieldset class="group">
-          <legend>Server</legend>
-          <label class="field">
-            <span class="field-label">Confluence URL</span>
-            <input
-              type="url"
-              id="url"
-              placeholder="https://wiki.example.com"
-              spellcheck="false"
-              autocapitalize="off"
-              required
-            />
-            <span class="field-hint">The full address you use in a browser.</span>
-          </label>
-        </fieldset>
-
-        <fieldset class="group">
-          <legend>Authentication</legend>
-          <div class="seg" role="tablist" aria-label="Authentication method">
-            <button
-              type="button"
-              role="tab"
-              class="seg-btn active"
-              data-target="auth-token"
-              aria-selected="true"
-            >
-              Personal&nbsp;token
-            </button>
-            <button
-              type="button"
-              role="tab"
-              class="seg-btn"
-              data-target="auth-basic"
-              aria-selected="false"
-            >
-              User&nbsp;&amp;&nbsp;password
-            </button>
+        <nav class="progress" aria-label="Setup progress">
+          <div class="step" data-step="1" data-state="active">
+            <span class="num">01</span>
+            <span class="label">Connect</span>
           </div>
+          <div class="step" data-step="2" data-state="upcoming">
+            <span class="num">02</span>
+            <span class="label">Verify</span>
+          </div>
+          <div class="step" data-step="3" data-state="upcoming">
+            <span class="num">03</span>
+            <span class="label">Install</span>
+          </div>
+        </nav>
 
-          <div id="auth-token" class="seg-panel active" role="tabpanel">
+        <form id="wizard" autocomplete="off" novalidate>
+          <fieldset class="group">
+            <legend>Server</legend>
             <label class="field">
-              <span class="field-label">Personal access token</span>
-              <input type="password" id="token" autocomplete="off" spellcheck="false" />
-              <span class="field-hint">
-                Find it in Confluence under <kbd>Profile → Personal Access Tokens</kbd>.
+              <span class="field-label">Confluence URL</span>
+              <input
+                type="url"
+                id="url"
+                placeholder="https://wiki.example.com"
+                spellcheck="false"
+                autocapitalize="off"
+                required
+              />
+              <span class="field-hint">The full address you use in a browser.</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="group">
+            <legend>Authentication</legend>
+            <div class="seg" role="tablist" aria-label="Authentication method">
+              <button
+                type="button"
+                role="tab"
+                class="seg-btn active"
+                data-target="auth-token"
+                aria-selected="true"
+              >
+                Personal&nbsp;token
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="seg-btn"
+                data-target="auth-basic"
+                aria-selected="false"
+              >
+                User&nbsp;&amp;&nbsp;password
+              </button>
+            </div>
+
+            <div id="auth-token" class="seg-panel active" role="tabpanel">
+              <label class="field">
+                <span class="field-label">Personal access token</span>
+                <input type="password" id="token" autocomplete="off" spellcheck="false" />
+                <span class="field-hint">
+                  Find it in Confluence under <kbd>Profile → Personal Access Tokens</kbd>.
+                </span>
+              </label>
+            </div>
+
+            <div id="auth-basic" class="seg-panel" role="tabpanel">
+              <div class="field-row">
+                <label class="field">
+                  <span class="field-label">Username</span>
+                  <input type="text" id="username" autocomplete="off" spellcheck="false" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Password</span>
+                  <input type="password" id="password" autocomplete="off" />
+                </label>
+              </div>
+            </div>
+
+            <label class="checkrow">
+              <input type="checkbox" id="ssl-verify" checked />
+              <span>
+                <span class="check-title">Verify SSL certificate</span>
+                <span class="check-hint">
+                  Leave on unless your company uses a self-signed certificate.
+                </span>
               </span>
             </label>
-          </div>
+          </fieldset>
 
-          <div id="auth-basic" class="seg-panel" role="tabpanel">
-            <div class="field-row">
-              <label class="field">
-                <span class="field-label">Username</span>
-                <input type="text" id="username" autocomplete="off" spellcheck="false" />
-              </label>
-              <label class="field">
-                <span class="field-label">Password</span>
-                <input type="password" id="password" autocomplete="off" />
-              </label>
-            </div>
-          </div>
-
-          <label class="checkrow">
-            <input type="checkbox" id="ssl-verify" checked />
-            <span>
-              <span class="check-title">Verify SSL certificate</span>
-              <span class="check-hint">
-                Leave on unless your company uses a self-signed certificate.
+          <fieldset class="group">
+            <legend>Install location</legend>
+            <label class="field">
+              <span class="field-label">Where to place the server binary</span>
+              <div class="path-row">
+                <input type="text" id="install-dir" readonly />
+                <button type="button" id="pick-dir" class="ghost">Change…</button>
+              </div>
+              <span class="field-hint">
+                Claude Desktop will launch this file each time it starts.
               </span>
-            </span>
-          </label>
-        </fieldset>
+            </label>
+          </fieldset>
 
-        <fieldset class="group">
-          <legend>Install location</legend>
-          <label class="field">
-            <span class="field-label">Where to place the server binary</span>
-            <div class="path-row">
-              <input type="text" id="install-dir" readonly />
-              <button type="button" id="pick-dir" class="ghost">Change…</button>
+          <div id="status" class="status" aria-live="polite"></div>
+
+          <div class="actions">
+            <button type="button" id="btn-test" class="btn btn-secondary">
+              <span class="btn-label">Test connection</span>
+              <span class="btn-arrow">→</span>
+            </button>
+            <button type="button" id="btn-save" class="btn btn-primary" disabled>
+              <span class="btn-label">Save &amp; finish</span>
+              <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ═══════════ MONITOR VIEW ═══════════ -->
+      <section id="view-monitor" class="view" role="tabpanel" aria-hidden="true">
+        <section class="monitor-intro">
+          <p class="monitor-kicker">Configured &amp; installed</p>
+          <h1 class="monitor-title">
+            Server <em id="monitor-state-word">status</em>.
+          </h1>
+        </section>
+
+        <div class="monitor-card">
+          <div class="monitor-card-head">
+            <span class="status-dot status-dot-lg" id="status-dot" data-state="unknown"></span>
+            <div class="monitor-card-text">
+              <span class="monitor-card-status" id="status-text">checking…</span>
+              <span class="monitor-card-meta" id="status-meta"></span>
             </div>
-            <span class="field-hint">
-              Claude Desktop will launch this file each time it starts.
+          </div>
+
+          <dl class="monitor-details" id="monitor-details">
+            <div class="detail">
+              <dt>URL</dt>
+              <dd id="detail-url">—</dd>
+            </div>
+            <div class="detail">
+              <dt>Auth</dt>
+              <dd id="detail-auth">—</dd>
+            </div>
+            <div class="detail">
+              <dt>Install path</dt>
+              <dd id="detail-path" class="mono">—</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div id="monitor-status" class="status" aria-live="polite"></div>
+
+        <div class="monitor-actions">
+          <button type="button" id="btn-edit-creds" class="btn btn-secondary">
+            <span class="btn-label">Edit credentials</span>
+            <span class="btn-arrow">→</span>
+          </button>
+          <button type="button" id="btn-stop" class="btn btn-secondary" disabled>
+            <span class="btn-label">Stop process</span>
+          </button>
+        </div>
+
+        <div class="monitor-danger">
+          <div class="danger-text">
+            <span class="danger-title">Turn off &amp; remove</span>
+            <span class="danger-body">
+              Stops the server and unregisters the MCP entry from Claude Desktop.
+              <br />
+              Restart Claude Desktop afterwards.
             </span>
-          </label>
-        </fieldset>
-
-        <div id="status" class="status" aria-live="polite"></div>
-
-        <div class="actions">
-          <button type="button" id="btn-test" class="btn btn-secondary">
-            <span class="btn-label">Test connection</span>
-            <span class="btn-arrow">→</span>
-          </button>
-          <button type="button" id="btn-save" class="btn btn-primary" disabled>
-            <span class="btn-label">Save &amp; finish</span>
-            <span class="btn-arrow">→</span>
-          </button>
+          </div>
+          <button type="button" id="btn-remove" class="danger">Remove</button>
         </div>
-
-      </form>
+      </section>
     </main>
-
-    <section id="success" class="success hidden" aria-hidden="true">
-      <div class="success-inner">
-        <div class="success-mark" aria-hidden="true">
-          <svg viewBox="0 0 40 40" width="34" height="34">
-            <path
-              d="M10 20.5 L17.5 28 L30.5 12.5"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </div>
-        <p class="success-kicker">All set.</p>
-        <h2 class="success-title">
-          Ready to <em>go.</em>
-        </h2>
-        <p class="success-body">
-          Restart Claude Desktop to activate the Confluence tools.
-        </p>
-        <p class="success-meta" id="success-path"></p>
-        <div class="success-actions">
-          <button type="button" id="btn-edit-again" class="btn btn-secondary">
-            <span class="btn-label">Edit settings</span>
-          </button>
-          <button type="button" id="btn-close" class="btn btn-primary">
-            <span class="btn-label">Close window</span>
-            <span class="btn-arrow">→</span>
-          </button>
-        </div>
-      </div>
-    </section>
 
     <script src="app.js"></script>
   </body>
