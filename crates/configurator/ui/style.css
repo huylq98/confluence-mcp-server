@@ -824,11 +824,13 @@ button:focus-visible {
 .url-badge[data-state="ok"]    { opacity: 1; background: #dcfce7; color: #14532d; }
 .url-badge[data-state="warn"]  { opacity: 1; background: #fef3c7; color: #78350f; }
 .url-badge[data-state="bad"]   { opacity: 1; background: #fee2e2; color: #7f1d1d; }
-.url-badge[data-state="empty"] { opacity: 0; }
-
 /* ── PAT deep-link ──────────────────────────────────────────────────── */
+.field-label--with-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
 .field-link {
-  float: right;
   font-size: 11px;
   color: var(--accent, #555);
   text-decoration: underline;
