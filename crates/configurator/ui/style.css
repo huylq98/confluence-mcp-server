@@ -167,33 +167,90 @@ body {
   max-width: 42ch;
 }
 
-/* Progress strip */
+/* Progress indicator — connected dots */
 .progress {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  grid-template-columns: repeat(3, 1fr);
+  padding: 20px 18px 16px;
+  position: relative;
 }
 
 .step {
   position: relative;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 9px 0 9px 12px;
-  border-right: 1px solid var(--line);
-  overflow: hidden;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
 }
 
-.step:first-child { padding-left: 2px; }
-.step:last-child  { border-right: none; }
+/* Connecting line segment LEFT of every step except the first.
+   It runs from the center of the previous step's dot to the center of this
+   step's dot, passing behind both. Painted grey by default, accent when the
+   step it leads to is active or done. */
+.step:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  left: calc(-50% + 14px);
+  right: calc(50% + 14px);
+  top: 13px;
+  height: 2px;
+  background: var(--line);
+  transition: background 0.45s var(--step-ease);
+  z-index: 0;
+}
 
+.step[data-state="active"]:not(:first-child)::before,
+.step[data-state="done"]:not(:first-child)::before {
+  background: var(--accent);
+}
+
+/* The dot itself — circle around the step number. */
 .step .num {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
   color: var(--ink-mute);
-  letter-spacing: 0.05em;
-  transition: color 0.3s var(--step-ease);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  transition: color 0.3s var(--step-ease),
+              border-color 0.3s var(--step-ease),
+              background 0.3s var(--step-ease),
+              box-shadow 0.3s var(--step-ease);
+}
+
+/* Active: ring of accent color. */
+.step[data-state="active"] .num {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Done: solid accent fill, digit hidden, checkmark shown via ::before. */
+.step[data-state="done"] .num {
+  color: transparent;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.step[data-state="done"] .num::before {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
 }
 
 .step .label {
@@ -206,30 +263,8 @@ body {
   transition: color 0.3s var(--step-ease);
 }
 
-.step[data-state="active"] .num,
-.step[data-state="active"] .label { color: var(--ink); }
-
-.step[data-state="active"]::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 -1px 0;
-  height: 2px;
-  background: var(--accent);
-  transform-origin: left;
-  animation: stepIn 0.55s var(--step-ease);
-}
-
-.step[data-state="done"] .num { color: var(--good); }
-.step[data-state="done"] .num::before {
-  content: "✓";
-  margin-right: 4px;
-  font-family: var(--sans);
-}
-
-@keyframes stepIn {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
-}
+.step[data-state="active"] .label,
+.step[data-state="done"] .label { color: var(--ink); }
 
 /* Groups / fieldsets */
 .group {
