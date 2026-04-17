@@ -200,3 +200,88 @@ pub async fn remove_config(install_dir: String) -> Result<RemoveResult, String> 
         message: "Confluence MCP removed. Restart Claude Desktop to apply.".into(),
     })
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerStatus {
+    pub running: bool,
+    pub pid: Option<u32>,
+    pub memory_mb: Option<u64>,
+    pub configured: bool,
+}
+
+#[tauri::command]
+pub async fn server_status() -> Result<ServerStatus, String> {
+    use sysinfo::System;
+
+    let configured = read_config(&default_config_path())
+        .ok()
+        .map(|e| e.confluence.is_some())
+        .unwrap_or(false);
+
+    let mut sys = System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    let target = crate::installer::SERVER_BINARY_NAME;
+    let mut running = None;
+    for (pid, proc) in sys.processes() {
+        let name = proc.name().to_string_lossy();
+        if name.eq_ignore_ascii_case(target) {
+            running = Some((pid.as_u32(), proc.memory() / 1024 / 1024));
+            break;
+        }
+    }
+
+    Ok(match running {
+        Some((pid, memory_mb)) => ServerStatus {
+            running: true,
+            pid: Some(pid),
+            memory_mb: Some(memory_mb),
+            configured,
+        },
+        None => ServerStatus {
+            running: false,
+            pid: None,
+            memory_mb: None,
+            configured,
+        },
+    })
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StopResult {
+    pub success: bool,
+    pub message: String,
+    pub killed: u32,
+}
+
+#[tauri::command]
+pub async fn stop_server() -> Result<StopResult, String> {
+    use sysinfo::System;
+
+    let mut sys = System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    let target = crate::installer::SERVER_BINARY_NAME;
+    let mut killed = 0u32;
+    for (_, proc) in sys.processes() {
+        let name = proc.name().to_string_lossy();
+        if name.eq_ignore_ascii_case(target) && proc.kill() {
+            killed += 1;
+        }
+    }
+
+    Ok(StopResult {
+        success: killed > 0,
+        killed,
+        message: if killed == 0 {
+            "Server is not running.".into()
+        } else {
+            format!(
+                "Stopped {killed} server process(es). Claude Desktop may relaunch it \
+                 automatically; use Remove below to unregister it permanently."
+            )
+        },
+    })
+}

@@ -514,33 +514,133 @@ input[readonly] {
 
 .btn:not(:disabled):active { transform: translateY(1px); }
 
-/* ── Footnote / remove link ─────────────────────────────────────────── */
-.footnote {
-  border-top: 1px dashed var(--line);
-  padding-top: 10px;
-  margin-top: 4px;
-  text-align: center;
+/* ── Status panel (shown when existing config is loaded) ────────────── */
+.status-panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-.link {
-  background: transparent;
-  border: none;
-  padding: 2px 4px;
-  font-family: var(--sans);
-  font-size: 11px;
+.status-panel.hidden { display: none; }
+
+.status-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.status-panel-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
   color: var(--ink-mute);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  text-decoration-style: dotted;
-  text-decoration-color: var(--line-strong);
-  transition: color 0.15s var(--step-ease),
-              text-decoration-color 0.15s;
+  margin-right: 2px;
 }
 
-.link:hover {
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-mute);
+  box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  transition: background 0.2s var(--step-ease),
+              box-shadow 0.2s var(--step-ease);
+}
+
+.status-dot[data-state="running"] {
+  background: var(--good);
+  box-shadow: 0 0 0 3px rgba(11, 122, 75, 0.16);
+  animation: pulse 2.4s var(--step-ease) infinite;
+}
+
+.status-dot[data-state="stopped"] {
+  background: var(--ink-mute);
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(11, 122, 75, 0.16); }
+  50%      { box-shadow: 0 0 0 5px rgba(11, 122, 75, 0.28); }
+}
+
+.status-text {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.status-panel-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  padding-left: 14px;
+  min-height: 14px;
+}
+
+.status-panel-meta:empty { display: none; }
+
+.status-panel-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.status-panel-actions .ghost,
+.status-panel-actions .danger {
+  flex: 1;
+  text-align: center;
+  justify-content: center;
+  padding: 7px 12px;
+  font-size: 11.5px;
+}
+
+.danger {
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid rgba(160, 39, 22, 0.35);
+  border-radius: var(--radius);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 500;
   color: var(--bad);
-  text-decoration-color: var(--bad);
+  cursor: pointer;
+  transition: background 0.15s var(--step-ease),
+              border-color 0.15s var(--step-ease);
+}
+
+.danger:hover {
+  background: var(--bad-bg);
+  border-color: var(--bad);
+}
+
+.danger:active { transform: translateY(1px); }
+
+.ghost:disabled,
+.danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.status-panel-hint {
+  margin: 2px 0 0;
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  line-height: 1.5;
+}
+
+.status-panel-hint em {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 10px;
+  color: var(--ink);
+  padding: 0 2px;
 }
 
 /* ── Success overlay ────────────────────────────────────────────────── */
@@ -633,6 +733,19 @@ input[readonly] {
 }
 
 .success-meta:empty { display: none; }
+
+.success-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  width: 100%;
+  justify-content: center;
+}
+
+.success-actions .btn {
+  min-width: 150px;
+  justify-content: center;
+}
 
 @keyframes successIn {
   from { opacity: 0; }

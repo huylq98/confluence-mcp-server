@@ -68,6 +68,7 @@ async function init() {
         "info",
         "Existing configuration loaded. Adjust and save to update it."
       );
+      startStatusPolling();
     }
   } catch (e) {
     setStatus("err", "Could not read existing config: " + e);
@@ -144,6 +145,7 @@ $("btn-save").addEventListener("click", async () => {
     if (result.success) {
       state = "done";
       setStep(3, "done");
+      startStatusPolling();
       showSuccess(result);
     } else {
       state = "tested";
@@ -159,19 +161,38 @@ $("btn-save").addEventListener("click", async () => {
   }
 });
 
-// Remove
-$("btn-remove").addEventListener("click", async () => {
+// Remove (prominent "Turn off & remove" in the status panel)
+async function handleRemove() {
   const ok = confirm(
-    "Remove Confluence MCP from Claude Desktop?\n\n" +
-      "This unregisters the MCP server entry and deletes the extracted server binary."
+    "Turn off Confluence MCP and remove it from Claude Desktop?\n\n" +
+      "This unregisters the MCP server entry, stops any running instance, " +
+      "and deletes the extracted server binary. Restart Claude Desktop afterwards."
   );
   if (!ok) return;
 
   try {
+    // Kill the running process first, best-effort
+    await invoke("stop_server").catch(() => null);
     const result = await invoke("remove_config", {
       installDir: $("install-dir").value,
     });
     setStatus(result.success ? "ok" : "err", result.message);
+    if (result.success) {
+      await refreshStatus();
+    }
+  } catch (e) {
+    setStatus("err", "Unexpected error: " + e);
+  }
+}
+
+$("btn-remove-top").addEventListener("click", handleRemove);
+
+// Stop (kill the running process; Claude Desktop may relaunch)
+$("btn-stop").addEventListener("click", async () => {
+  try {
+    const result = await invoke("stop_server");
+    setStatus(result.success ? "ok" : "info", result.message);
+    await refreshStatus();
   } catch (e) {
     setStatus("err", "Unexpected error: " + e);
   }
@@ -183,6 +204,77 @@ function showSuccess(result) {
   if (result && result.serverPath) {
     successPath.textContent = "Server installed at\n" + result.serverPath;
   }
+}
+
+function hideSuccess() {
+  successPanel.classList.add("hidden");
+  successPanel.setAttribute("aria-hidden", "true");
+}
+
+$("btn-edit-again").addEventListener("click", () => {
+  hideSuccess();
+  // Reset to idle so the user can re-test before re-saving.
+  state = "idle";
+  setStep(1, "active");
+  setStatus("", "");
+  $("btn-save").disabled = true;
+  refreshStatus();
+});
+
+$("btn-close").addEventListener("click", () => {
+  // Tauri 2 window close — requires the core:window:allow-close permission.
+  try {
+    if (window.__TAURI__?.window?.getCurrentWindow) {
+      window.__TAURI__.window.getCurrentWindow().close();
+    } else if (window.__TAURI__?.window?.getCurrent) {
+      window.__TAURI__.window.getCurrent().close();
+    } else {
+      window.close();
+    }
+  } catch {
+    window.close();
+  }
+});
+
+// ── Server status polling ──────────────────────────────────────────
+const statusPanel = $("status-panel");
+const statusDot = $("status-dot");
+const statusText = $("status-text");
+const statusMeta = $("status-meta");
+
+async function refreshStatus() {
+  try {
+    const s = await invoke("server_status");
+
+    if (!s.configured) {
+      statusPanel.classList.add("hidden");
+      return;
+    }
+    statusPanel.classList.remove("hidden");
+
+    if (s.running) {
+      statusDot.dataset.state = "running";
+      statusText.textContent = "Running";
+      statusMeta.textContent = `PID ${s.pid} · ${s.memoryMb} MB`;
+      $("btn-stop").disabled = false;
+    } else {
+      statusDot.dataset.state = "stopped";
+      statusText.textContent = "Not running";
+      statusMeta.textContent = "Waiting for Claude Desktop to launch it.";
+      $("btn-stop").disabled = true;
+    }
+  } catch (e) {
+    statusDot.dataset.state = "unknown";
+    statusText.textContent = "Status unavailable";
+    statusMeta.textContent = String(e);
+  }
+}
+
+let statusTimer = null;
+function startStatusPolling() {
+  if (statusTimer) return;
+  refreshStatus();
+  statusTimer = setInterval(refreshStatus, 3000);
 }
 
 // If the user edits any auth/URL input after a successful test,

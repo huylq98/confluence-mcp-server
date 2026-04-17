@@ -52,6 +52,27 @@
         </div>
       </nav>
 
+      <section id="status-panel" class="status-panel hidden" aria-live="polite">
+        <div class="status-panel-head">
+          <span class="status-panel-label">Server status</span>
+          <span class="status-dot" id="status-dot" data-state="unknown"></span>
+          <span class="status-text" id="status-text">checking…</span>
+        </div>
+        <div class="status-panel-meta" id="status-meta"></div>
+        <div class="status-panel-actions">
+          <button type="button" id="btn-stop" class="ghost" disabled>
+            Stop process
+          </button>
+          <button type="button" id="btn-remove-top" class="danger">
+            Turn off &amp; remove
+          </button>
+        </div>
+        <p class="status-panel-hint">
+          <em>Stop</em> kills the running process — Claude Desktop may relaunch it.
+          <em>Turn off &amp; remove</em> unregisters it permanently (restart Claude Desktop after).
+        </p>
+      </section>
+
       <form id="wizard" autocomplete="off" novalidate>
         <fieldset class="group">
           <legend>Server</legend>
@@ -153,11 +174,6 @@
           </button>
         </div>
 
-        <div class="footnote">
-          <button type="button" id="btn-remove" class="link">
-            Remove Confluence MCP from Claude Desktop
-          </button>
-        </div>
       </form>
     </main>
 
@@ -180,10 +196,18 @@
           Ready to <em>go.</em>
         </h2>
         <p class="success-body">
-          Restart Claude Desktop to activate the Confluence tools.<br />
-          You can close this window.
+          Restart Claude Desktop to activate the Confluence tools.
         </p>
         <p class="success-meta" id="success-path"></p>
+        <div class="success-actions">
+          <button type="button" id="btn-edit-again" class="btn btn-secondary">
+            <span class="btn-label">Edit settings</span>
+          </button>
+          <button type="button" id="btn-close" class="btn btn-primary">
+            <span class="btn-label">Close window</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </div>
       </div>
     </section>
 

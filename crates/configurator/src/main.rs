@@ -74,6 +74,8 @@ fn main() {
             commands::test_connection,
             commands::save_config,
             commands::remove_config,
+            commands::server_status,
+            commands::stop_server,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start Tauri app");
