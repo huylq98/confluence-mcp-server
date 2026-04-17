@@ -8,6 +8,8 @@ use rmcp::{
 use rmcp::schemars::JsonSchema;
 use serde::Deserialize;
 use std::sync::Arc;
+use crate::recorder::{ErrorEntry, HistoryEntry, Recorder};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListSpacesArgs {
@@ -72,6 +74,7 @@ pub struct SearchArgs {
 pub struct ConfluenceServer {
     pub(crate) client: Arc<Client>,
     pub(crate) config: Arc<Config>,
+    recorder: Arc<Option<Recorder>>,
     tool_router: ToolRouter<ConfluenceServer>,
 }
 
@@ -92,9 +95,11 @@ impl ConfluenceServer {
         }
         config.validate()?;
         let client = Client::new(config.clone())?;
+        let recorder = Arc::new(Recorder::from_current_exe());
         Ok(Self {
             client: Arc::new(client),
             config: Arc::new(config),
+            recorder,
             tool_router: Self::tool_router(),
         })
     }
@@ -103,16 +108,58 @@ impl ConfluenceServer {
         &self.config.confluence_url
     }
 
+    fn now_ts() -> i64 {
+        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
+    }
+
+    fn record(
+        &self,
+        tool: &'static str,
+        args: serde_json::Value,
+        text: &str,
+        status: &str,
+    ) {
+        let Some(rec) = (*self.recorder).as_ref() else { return };
+        rec.record_history(&HistoryEntry {
+            ts: Self::now_ts(),
+            tool,
+            args,
+            out_chars: text.chars().count(),
+            tokens_est: text.chars().count() / 4,
+            status,
+        });
+    }
+
+    fn record_error(&self, tool: &'static str, status: &str, message: &str) {
+        let Some(rec) = (*self.recorder).as_ref() else { return };
+        let snippet: String = message.chars().take(300).collect();
+        rec.record_error(&ErrorEntry {
+            ts: Self::now_ts(),
+            tool,
+            status,
+            message: &snippet,
+        });
+    }
+
     #[tool(description = "List file attachments on a Confluence page with download URLs.")]
     async fn get_attachments(
         &self,
         Parameters(args): Parameters<GetAttachmentsArgs>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         let limit = args.limit.unwrap_or(50);
-        match self.client.get_child(&args.page_id, "attachment", "version", limit).await {
-            Ok(data) => Ok(CallToolResult::success(vec![Content::text(crate::tools::get_attachments::format(&data, &self.config.confluence_url))])),
-            Err(e)   => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
-        }
+        let page_id = args.page_id.clone();
+        let (text, status) = match self.client.get_child(&page_id, "attachment", "version", limit).await {
+            Ok(data) => (crate::tools::get_attachments::format(&data, &self.config.confluence_url), "ok".to_string()),
+            Err(e) => {
+                let msg = crate::format::error_response(&e);
+                let code = e.status_code();
+                let status = if code > 0 { code.to_string() } else { "error".into() };
+                self.record_error("get_attachments", &status, &msg);
+                (msg, status)
+            }
+        };
+        self.record("get_attachments", serde_json::json!({"page_id": page_id}), &text, &status);
+        Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
     #[tool(description = "Get comments on a Confluence page (inline and footer).")]
@@ -121,10 +168,19 @@ impl ConfluenceServer {
         Parameters(args): Parameters<GetCommentsArgs>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         let limit = args.limit.unwrap_or(25);
-        match self.client.get_child(&args.page_id, "comment", "body.view,version,extensions.inlineProperties", limit).await {
-            Ok(data) => Ok(CallToolResult::success(vec![Content::text(crate::tools::get_comments::format(&data))])),
-            Err(e)   => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
-        }
+        let page_id = args.page_id.clone();
+        let (text, status) = match self.client.get_child(&page_id, "comment", "body.view,version,extensions.inlineProperties", limit).await {
+            Ok(data) => (crate::tools::get_comments::format(&data), "ok".to_string()),
+            Err(e) => {
+                let msg = crate::format::error_response(&e);
+                let code = e.status_code();
+                let status = if code > 0 { code.to_string() } else { "error".into() };
+                self.record_error("get_comments", &status, &msg);
+                (msg, status)
+            }
+        };
+        self.record("get_comments", serde_json::json!({"page_id": page_id}), &text, &status);
+        Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
     #[tool(description = "Retrieve a Confluence page by its full URL. Supports all common URL formats.")]
@@ -136,29 +192,44 @@ impl ConfluenceServer {
 
         let body_format = args.format.as_deref().unwrap_or("storage");
         let expand = format!("body.{body_format},version,space,metadata.labels,ancestors");
+        let args_json = serde_json::json!({"url": args.url});
 
-        let text = match resolve(&args.url) {
-            UrlResolution::Unparseable => format_unparseable(&args.url),
-            UrlResolution::TinyUrl(_)  => format_tiny_url(),
+        let (text, status) = match resolve(&args.url) {
+            UrlResolution::Unparseable => (format_unparseable(&args.url), "ok".to_string()),
+            UrlResolution::TinyUrl(_)  => (format_tiny_url(), "ok".to_string()),
             UrlResolution::ById(id) => match self.client.get_page(&id, &expand).await {
-                Ok(page) => crate::tools::get_page::format(&page, body_format, true, &self.config.confluence_url, self.config.max_content_length),
-                Err(e)   => crate::format::error_response(&e),
+                Ok(page) => (crate::tools::get_page::format(&page, body_format, true, &self.config.confluence_url, self.config.max_content_length), "ok".to_string()),
+                Err(e) => {
+                    let msg = crate::format::error_response(&e);
+                    let code = e.status_code();
+                    let status = if code > 0 { code.to_string() } else { "error".into() };
+                    self.record_error("get_page_by_url", &status, &msg);
+                    (msg, status)
+                }
             },
             UrlResolution::BySpaceTitle { space, title } => match self.client.get_page_by_title(&space, &title, &expand).await {
                 Ok(data) => {
                     let empty = vec![];
                     let results = data.pointer("/results").and_then(|v| v.as_array()).unwrap_or(&empty);
-                    if results.is_empty() {
+                    let text = if results.is_empty() {
                         format!(
                             "No page titled '{title}' found in space {space}.\nTip: Try search_confluence with: title~\"{title}\" AND space={space}"
                         )
                     } else {
                         crate::tools::get_page::format(&results[0], body_format, true, &self.config.confluence_url, self.config.max_content_length)
-                    }
+                    };
+                    (text, "ok".to_string())
                 }
-                Err(e) => crate::format::error_response(&e),
+                Err(e) => {
+                    let msg = crate::format::error_response(&e);
+                    let code = e.status_code();
+                    let status = if code > 0 { code.to_string() } else { "error".into() };
+                    self.record_error("get_page_by_url", &status, &msg);
+                    (msg, status)
+                }
             },
         };
+        self.record("get_page_by_url", args_json, &text, &status);
         Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
@@ -168,7 +239,8 @@ impl ConfluenceServer {
         Parameters(args): Parameters<GetPageByTitleArgs>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         let expand = "body.storage,version,space,metadata.labels,ancestors";
-        match self.client.get_page_by_title(&args.space_key, &args.title, expand).await {
+        let args_json = serde_json::json!({"space_key": args.space_key, "title": args.title});
+        let (text, status) = match self.client.get_page_by_title(&args.space_key, &args.title, expand).await {
             Ok(data) => {
                 let empty = vec![];
                 let results = data.pointer("/results").and_then(|v| v.as_array()).unwrap_or(&empty);
@@ -177,10 +249,18 @@ impl ConfluenceServer {
                 } else {
                     crate::tools::get_page_by_title::format_found(&results[0], &args.space_key, &self.config.confluence_url, self.config.max_content_length)
                 };
-                Ok(CallToolResult::success(vec![Content::text(text)]))
+                (text, "ok".to_string())
             }
-            Err(e) => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
-        }
+            Err(e) => {
+                let msg = crate::format::error_response(&e);
+                let code = e.status_code();
+                let status = if code > 0 { code.to_string() } else { "error".into() };
+                self.record_error("get_page_by_title", &status, &msg);
+                (msg, status)
+            }
+        };
+        self.record("get_page_by_title", args_json, &text, &status);
+        Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
     #[tool(description = "Retrieve a Confluence page's full content by its numeric ID.")]
@@ -197,13 +277,23 @@ impl ConfluenceServer {
             expand_parts.push(&body_expand);
         }
         let expand = expand_parts.join(",");
+        let page_id = args.page_id.clone();
 
-        match self.client.get_page(&args.page_id, &expand).await {
-            Ok(page) => Ok(CallToolResult::success(vec![Content::text(
+        let (text, status) = match self.client.get_page(&page_id, &expand).await {
+            Ok(page) => (
                 crate::tools::get_page::format(&page, body_format, include_body, &self.config.confluence_url, self.config.max_content_length),
-            )])),
-            Err(e) => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
-        }
+                "ok".to_string(),
+            ),
+            Err(e) => {
+                let msg = crate::format::error_response(&e);
+                let code = e.status_code();
+                let status = if code > 0 { code.to_string() } else { "error".into() };
+                self.record_error("get_page", &status, &msg);
+                (msg, status)
+            }
+        };
+        self.record("get_page", serde_json::json!({"page_id": page_id}), &text, &status);
+        Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
     #[tool(description = "Search Confluence pages using CQL (Confluence Query Language).")]
@@ -212,12 +302,18 @@ impl ConfluenceServer {
         Parameters(args): Parameters<SearchArgs>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         let limit = args.limit.unwrap_or(10).clamp(1, 50);
-        match self.client.search(&args.cql, limit, "space,version,metadata.labels").await {
-            Ok(data) => Ok(CallToolResult::success(vec![Content::text(
-                crate::tools::search_confluence::format(&data, &self.config.confluence_url),
-            )])),
-            Err(e) => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
-        }
+        let (text, status) = match self.client.search(&args.cql, limit, "space,version,metadata.labels").await {
+            Ok(data) => (crate::tools::search_confluence::format(&data, &self.config.confluence_url), "ok".to_string()),
+            Err(e) => {
+                let msg = crate::format::error_response(&e);
+                let code = e.status_code();
+                let status = if code > 0 { code.to_string() } else { "error".into() };
+                self.record_error("search_confluence", &status, &msg);
+                (msg, status)
+            }
+        };
+        self.record("search_confluence", serde_json::json!({}), &text, &status);
+        Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
     #[tool(description = "List Confluence spaces the authenticated user can access.")]
@@ -230,10 +326,18 @@ impl ConfluenceServer {
             Some(other) => Some(other),
         };
         let limit = args.limit.unwrap_or(50);
-        match self.client.list_spaces(space_type, limit, "description.plain").await {
-            Ok(data) => Ok(CallToolResult::success(vec![Content::text(crate::tools::list_spaces::format(&data))])),
-            Err(e) => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
-        }
+        let (text, status) = match self.client.list_spaces(space_type, limit, "description.plain").await {
+            Ok(data) => (crate::tools::list_spaces::format(&data), "ok".to_string()),
+            Err(e) => {
+                let msg = crate::format::error_response(&e);
+                let code = e.status_code();
+                let status = if code > 0 { code.to_string() } else { "error".into() };
+                self.record_error("list_spaces", &status, &msg);
+                (msg, status)
+            }
+        };
+        self.record("list_spaces", serde_json::json!({}), &text, &status);
+        Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 }
 
