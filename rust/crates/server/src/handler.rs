@@ -19,6 +19,14 @@ pub struct ListSpacesArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetPageByUrlArgs {
+    /// Any Confluence page URL (full or relative path).
+    pub url: String,
+    /// Body format — 'storage' (raw XHTML) or 'view' (rendered HTML). Default 'storage'.
+    pub format: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetPageByTitleArgs {
     /// The space key (e.g. 'DEV', 'TEAM', 'HR').
     pub space_key: String,
@@ -66,6 +74,41 @@ impl ConfluenceServer {
 
     pub fn confluence_url(&self) -> &str {
         &self.config.confluence_url
+    }
+
+    #[tool(description = "Retrieve a Confluence page by its full URL. Supports all common URL formats.")]
+    async fn get_page_by_url(
+        &self,
+        Parameters(args): Parameters<GetPageByUrlArgs>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        use crate::tools::get_page_by_url::{resolve, UrlResolution, format_unparseable, format_tiny_url};
+
+        let body_format = args.format.as_deref().unwrap_or("storage");
+        let expand = format!("body.{body_format},version,space,metadata.labels,ancestors");
+
+        let text = match resolve(&args.url) {
+            UrlResolution::Unparseable => format_unparseable(&args.url),
+            UrlResolution::TinyUrl(_)  => format_tiny_url(),
+            UrlResolution::ById(id) => match self.client.get_page(&id, &expand).await {
+                Ok(page) => crate::tools::get_page::format(&page, body_format, true, &self.config.confluence_url, self.config.max_content_length),
+                Err(e)   => crate::format::error_response(&e),
+            },
+            UrlResolution::BySpaceTitle { space, title } => match self.client.get_page_by_title(&space, &title, &expand).await {
+                Ok(data) => {
+                    let empty = vec![];
+                    let results = data.pointer("/results").and_then(|v| v.as_array()).unwrap_or(&empty);
+                    if results.is_empty() {
+                        format!(
+                            "No page titled '{title}' found in space {space}.\nTip: Try search_confluence with: title~\"{title}\" AND space={space}"
+                        )
+                    } else {
+                        crate::tools::get_page::format(&results[0], body_format, true, &self.config.confluence_url, self.config.max_content_length)
+                    }
+                }
+                Err(e) => crate::format::error_response(&e),
+            },
+        };
+        Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
     #[tool(description = "Find a Confluence page by its exact title within a space.")]
