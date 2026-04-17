@@ -4,72 +4,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-An MCP (Model Context Protocol) server that connects Claude to **Confluence Server / Data Center**. Includes a PyInstaller-bundled desktop configurator GUI for non-technical users.
+An MCP (Model Context Protocol) server that connects Claude to **Confluence Server / Data Center**. Includes a Tauri 2 desktop configurator wizard that writes the Claude Desktop config and extracts the MCP server binary to the user's chosen install directory.
 
 ## Distribution Constraint (CRITICAL)
 
-The shipped distribution **must run standalone** on a tester/end-user machine that has **nothing installed** — no Python, no pip, no Node, no runtimes, no dev tools. Every artifact users receive must be a self-contained executable (PyInstaller onefile or equivalent).
+The shipped distribution **must run standalone** on a tester/end-user machine that has **nothing installed** — no Python, no Rust, no Node, no runtimes, no dev tools. The single `ConfluenceMCPSetup.exe` embeds everything it needs.
 
 Implications:
-- Anything the MCP server needs at runtime (Python interpreter, deps) must be bundled into the exe — do not design flows that shell out to `python server.py`.
-- If splitting into multiple exes (e.g. separate configurator + server), each one must itself be fully bundled.
-- Do not rely on PATH, system libs beyond what Windows ships, or on users to install anything.
+- The MCP server binary is embedded inside the wizard via `include_bytes!` and extracted on Save.
+- Once extracted, Claude Desktop launches the standalone server exe on every boot.
+- Do not rely on PATH, system libs beyond what Windows ships with, or user installations.
 
 ## Commands
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Run tests (all crates)
+cargo test --workspace -- --test-threads=1
 
-# Or install as editable package
-pip install -e ".[dev]"
+# Build release distribution (Windows)
+powershell -ExecutionPolicy Bypass -File scripts/build.ps1
+# Output: dist/ConfluenceMCPSetup.exe (~2.8 MB)
 
-# Run MCP server (HTTP mode, default)
-python server.py
+# Run the wizard in debug mode
+cargo run -p configurator
 
-# Run MCP server (stdio mode for Claude Desktop)
-MCP_TRANSPORT=stdio python server.py
-
-# Run desktop configurator GUI
-python main.py
-
-# Run all tests
-pytest
-
-# Run a single test file
-pytest tests/test_confluence_client.py
-
-# Build desktop exe
-pip install pyinstaller
-python build.py
-# Output: dist/ConfluenceMCPSetup.exe
+# Run the MCP server in debug mode (set CONFLUENCE_URL + CONFLUENCE_TOKEN first)
+cargo run -p server
 ```
 
 ## Architecture
 
-**Entry points:**
-- `server.py` — MCP server. Creates a `FastMCP` instance, registers 7 Confluence tools, and runs the transport (stdio or HTTP).
-- `main.py` — Desktop entry point. No args = GUI wizard; `--serve` = MCP server.
+Cargo workspace at repo root with three crates:
 
-**Configuration:** `config.py` loads env vars (with `.env` support via `python-dotenv`). Validates that Confluence URL and credentials are set. Exits on errors.
+- **`crates/confluence-core`** — shared library: HTTP client with rate limiting + retry/backoff, `Config` loaded from env vars, URL parser (supports 8 formats), HTML strip/truncate helpers, error types.
+- **`crates/server`** — MCP stdio server binary (`confluence-mcp-server.exe`) built on the official `rmcp` crate. Registers 7 Confluence tools: `list_spaces`, `search_confluence`, `get_page`, `get_page_by_title`, `get_page_by_url`, `get_comments`, `get_attachments`. Launched by Claude Desktop on every boot.
+- **`crates/configurator`** — Tauri 2 desktop wizard (`ConfluenceMCPSetup.exe`). Embeds the server binary via `include_bytes!`, extracts it to `%LOCALAPPDATA%\ConfluenceMCP\` (or user-chosen path) on Save, and writes the resulting path into Claude Desktop's `claude_desktop_config.json`.
 
-**API client:** `confluence_client.py` — Async HTTP client for the Confluence REST API. Handles auth (Bearer token or Basic), rate limiting via semaphore + minimum interval, retry with exponential backoff on 429/503, and error handling.
-
-**Desktop configurator** (`configurator/`): pywebview-based GUI that writes Claude Desktop's `claude_desktop_config.json`. Has its own `requirements.txt`.
+`scripts/build.ps1` orchestrates the ordered build: server release → UPX → copy into configurator resources → configurator release → UPX → final artifact in `dist/`.
 
 ## Testing
 
-Tests use `pytest` with `pytest-asyncio` (auto mode) and `respx` for mocking httpx requests. Test files are in `tests/`.
+Rust tests use `cargo test` with `wiremock` for HTTP mocking (parallel to Python's `respx`) and `tempfile` for filesystem isolation. Run with `--test-threads=1` because `confluence-core::config` tests mutate process env vars.
 
 ## Environment Variables
 
 Confluence: `CONFLUENCE_URL`, `CONFLUENCE_TOKEN` or `CONFLUENCE_USERNAME`/`CONFLUENCE_PASSWORD`, `CONFLUENCE_SSL_VERIFY`, `CONFLUENCE_CA_BUNDLE`, `CONFLUENCE_TIMEOUT`, `CONFLUENCE_RATE_LIMIT`.
 
-Server: `MCP_TRANSPORT` (`stdio`|`http`), `MCP_PORT` (default 8000).
-
 Content: `MAX_CONTENT_LENGTH` (default 50000), `DEFAULT_SEARCH_LIMIT` (default 10).
 
 ## Important Notes
 
-- Never log to stdout in stdio mode — all logging goes to stderr.
-- Tool functions return formatted markdown strings, not raw JSON — they are designed for LLM consumption.
+- Never log to stdout in stdio mode — all logging goes to stderr (`tracing_subscriber::fmt().with_writer(std::io::stderr)`).
+- Tool functions return formatted markdown strings, not raw JSON — designed for LLM consumption.
+- Schemars version: pin via rmcp's bundled schemars 1.x (don't add a standalone dependency).

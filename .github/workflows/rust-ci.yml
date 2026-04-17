@@ -12,7 +12,6 @@ jobs:
     defaults:
       run:
         shell: pwsh
-        working-directory: rust
     steps:
       - uses: actions/checkout@v4
 
@@ -27,8 +26,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/Cargo.lock') }}
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
 
       - name: Fetch UPX
         run: |
@@ -51,7 +50,7 @@ jobs:
 
       - name: Enforce size gates
         run: |
-          $server = (Get-Item "rust/target/release/confluence-mcp-server.exe").Length
+          $server = (Get-Item "target/release/confluence-mcp-server.exe").Length
           $wizard = (Get-Item "dist/ConfluenceMCPSetup.exe").Length
           Write-Host ("server: {0:N0} bytes ({1:N2} MB)" -f $server, ($server / 1MB))
           Write-Host ("wizard: {0:N0} bytes ({1:N2} MB)" -f $wizard, ($wizard / 1MB))

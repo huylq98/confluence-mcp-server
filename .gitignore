@@ -4,17 +4,13 @@
 *.key
 *.crt
 
-# ---- Python ----
-__pycache__/
-*.py[cod]
-*.egg-info/
+# ---- Rust ----
+target/
+**/*.rs.bk
+crates/configurator/resources/confluence-mcp-server.exe
+crates/configurator/gen/
 dist/
-build/
-.venv/
-venv/
-
-# ---- PyInstaller ----
-*.spec
+*.stackdump
 
 # ---- Build tools (downloaded locally) ----
 tools/
@@ -27,9 +23,6 @@ tools/
 .idea/
 *.swp
 *.swo
-
-# ---- Docker ----
-.docker/
 
 # ---- OS ----
 .DS_Store
