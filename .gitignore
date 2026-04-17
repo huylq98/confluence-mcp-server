@@ -16,6 +16,9 @@ venv/
 # ---- PyInstaller ----
 *.spec
 
+# ---- Build tools (downloaded locally) ----
+tools/
+
 # ---- IDE ----
 .vscode/
 .idea/

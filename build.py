@@ -1,7 +1,11 @@
 """Build script — creates a single-file executable using PyInstaller."""
 
+import shutil
 import subprocess
 import sys
+from pathlib import Path
+
+UPX_DIR = Path(__file__).parent / "tools" / "upx-4.2.4-win64"
 
 
 def build():
@@ -33,6 +37,16 @@ def build():
         # Entry point
         "main.py",
     ]
+
+    upx_exe = UPX_DIR / "upx.exe"
+    if upx_exe.exists():
+        cmd.extend(["--upx-dir", str(UPX_DIR)])
+        print(f"UPX found at {upx_exe} — compression enabled.")
+    elif shutil.which("upx"):
+        print("UPX found on PATH — compression enabled.")
+    else:
+        print("UPX not found — building without compression.")
+        print("  Download: https://github.com/upx/upx/releases (extract to tools/upx-4.2.4-win64/)")
 
     print("Building ConfluenceMCPSetup.exe ...")
     print(f"Command: {' '.join(cmd)}")

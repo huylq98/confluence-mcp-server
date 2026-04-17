@@ -6,6 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An MCP (Model Context Protocol) server that connects Claude to **Confluence Server / Data Center**. Includes a PyInstaller-bundled desktop configurator GUI for non-technical users.
 
+## Distribution Constraint (CRITICAL)
+
+The shipped distribution **must run standalone** on a tester/end-user machine that has **nothing installed** — no Python, no pip, no Node, no runtimes, no dev tools. Every artifact users receive must be a self-contained executable (PyInstaller onefile or equivalent).
+
+Implications:
+- Anything the MCP server needs at runtime (Python interpreter, deps) must be bundled into the exe — do not design flows that shell out to `python server.py`.
+- If splitting into multiple exes (e.g. separate configurator + server), each one must itself be fully bundled.
+- Do not rely on PATH, system libs beyond what Windows ships, or on users to install anything.
+
 ## Commands
 
 ```bash

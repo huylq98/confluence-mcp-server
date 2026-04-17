@@ -19,7 +19,30 @@
       "Bash(reg query:*)",
       "Bash(powershell -Command \"Get-ItemProperty ''HKLM:\\\\SOFTWARE\\\\Microsoft\\\\EdgeUpdate\\\\Clients\\\\*'' -ErrorAction SilentlyContinue | Where-Object { $_.name -like ''*WebView*'' } | Format-List name, pv\")",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(CONFLUENCE_URL=https://test.example.com CONFLUENCE_TOKEN=test MCP_TRANSPORT=stdio python -c \"from server import mcp; print\\('Server OK, tools:', len\\(mcp._tool_manager._tools\\)\\)\")",
+      "Bash(git rm:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(grep -E \"\\\\.\\(py|txt|md|json\\)$\")",
+      "Bash(where upx *)",
+      "Bash(upx --version)",
+      "Bash(winget --version)",
+      "Bash(choco --version)",
+      "Bash(mkdir -p tools)",
+      "Bash(curl -sL -o tools/upx.zip https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-win64.zip)",
+      "Bash(unzip -o upx.zip)",
+      "Bash(./upx-4.2.4-win64/upx.exe --version)",
+      "Bash(tasklist //FI \"IMAGENAME eq ConfluenceMCPSetup.exe\")",
+      "Bash(where python *)",
+      "Bash(py -c \"import PyInstaller; print\\(PyInstaller.__version__\\)\")",
+      "Bash(rm -rf build dist *.spec)",
+      "Bash(py build.py)",
+      "Bash(mv tools/upx-4.2.4-win64 tools/_upx-disabled)",
+      "Bash(gh api *)"
     ]
   }
 }
