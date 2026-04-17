@@ -19,6 +19,14 @@ pub struct ListSpacesArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetCommentsArgs {
+    /// The numeric page ID.
+    pub page_id: String,
+    /// Maximum comments to return (default 25).
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetPageByUrlArgs {
     /// Any Confluence page URL (full or relative path).
     pub url: String,
@@ -74,6 +82,18 @@ impl ConfluenceServer {
 
     pub fn confluence_url(&self) -> &str {
         &self.config.confluence_url
+    }
+
+    #[tool(description = "Get comments on a Confluence page (inline and footer).")]
+    async fn get_comments(
+        &self,
+        Parameters(args): Parameters<GetCommentsArgs>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let limit = args.limit.unwrap_or(25);
+        match self.client.get_child(&args.page_id, "comment", "body.view,version,extensions.inlineProperties", limit).await {
+            Ok(data) => Ok(CallToolResult::success(vec![Content::text(crate::tools::get_comments::format(&data))])),
+            Err(e)   => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
+        }
     }
 
     #[tool(description = "Retrieve a Confluence page by its full URL. Supports all common URL formats.")]
