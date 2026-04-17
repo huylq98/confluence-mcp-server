@@ -17,6 +17,9 @@ tracing = { workspace = true }
 urlencoding = "2"
 base64 = "0.22"
 
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winhttp", "winbase", "errhandlingapi"] }
+
 [dev-dependencies]
 wiremock = "0.6"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

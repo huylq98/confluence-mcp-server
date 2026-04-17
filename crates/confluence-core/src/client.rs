@@ -1,3 +1,4 @@
+use crate::pac::{looks_like_pac_url, PacResolver};
 use crate::{Config, ConfluenceError};
 use reqwest::{header::{HeaderMap, HeaderValue, AUTHORIZATION, ACCEPT}, Method, StatusCode};
 use serde_json::Value;
@@ -46,9 +47,18 @@ impl Client {
         if let Some(p) = &config.proxy_url {
             let trimmed = p.trim();
             if !trimmed.is_empty() {
-                let proxy = reqwest::Proxy::all(trimmed)
-                    .map_err(|e| ConfluenceError::Config(format!("invalid proxy URL '{trimmed}': {e}")))?;
-                builder = builder.proxy(proxy);
+                if looks_like_pac_url(trimmed) {
+                    let resolver = Arc::new(
+                        PacResolver::new(trimmed.to_string())
+                            .map_err(|e| ConfluenceError::Config(format!("PAC setup failed for '{trimmed}': {e}")))?,
+                    );
+                    let proxy = reqwest::Proxy::custom(move |url| resolver.resolve(url));
+                    builder = builder.proxy(proxy);
+                } else {
+                    let proxy = reqwest::Proxy::all(trimmed)
+                        .map_err(|e| ConfluenceError::Config(format!("invalid proxy URL '{trimmed}': {e}")))?;
+                    builder = builder.proxy(proxy);
+                }
             }
         }
 

@@ -103,12 +103,17 @@ async function init() {
     // (without committing it until the user hits Test/Save).
     const savedProxy = cfg.proxyUrl || "";
     const detectedProxy = cfg.detectedProxyUrl || "";
+    const detectedKind = cfg.detectedProxyKind || "";
     $("proxy-url").value = savedProxy || detectedProxy;
     const hint = $("proxy-hint");
     if (!savedProxy && detectedProxy) {
-      hint.textContent = `Detected from Windows system proxy: ${detectedProxy}. Edit or clear if incorrect.`;
+      const label = detectedKind === "pac" ? "PAC script URL" : "static proxy";
+      hint.textContent = `Detected from Windows (${label}): ${detectedProxy}. Edit or clear if incorrect.`;
+    } else if (!savedProxy && detectedKind === "wpad") {
+      hint.textContent =
+        "Windows is set to auto-detect a proxy (WPAD). Paste your company's .pac URL if you know it — otherwise leave blank.";
     } else if (savedProxy) {
-      hint.textContent = "Saved proxy. Clear the field to go direct.";
+      hint.textContent = "Saved proxy. Clear the field to go direct. Accepts http://host:port or a .pac URL.";
     }
 
     if (cfg.token) {

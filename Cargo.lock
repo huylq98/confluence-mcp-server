@@ -384,6 +384,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
  "winapi",
  "winreg 0.52.0",
 ]
@@ -402,6 +403,7 @@ dependencies = [
  "tracing",
  "url",
  "urlencoding",
+ "winapi",
  "wiremock",
 ]
 

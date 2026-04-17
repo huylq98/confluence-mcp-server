@@ -78,7 +78,18 @@ pub struct ConfluenceServer {
 #[tool_router]
 impl ConfluenceServer {
     pub fn from_env() -> Result<Self> {
-        let config = Config::from_env();
+        let mut config = Config::from_env();
+        // When CONFLUENCE_PROXY_URL isn't explicitly set, inherit the Windows
+        // system proxy — same PAC / static config the user's browser uses.
+        // This makes the server "just work" on corporate networks where the
+        // browser succeeds but a raw reqwest client (no proxy awareness) fails.
+        if config.proxy_url.as_deref().map(str::trim).unwrap_or("").is_empty() {
+            let detected = confluence_core::system_proxy::detect();
+            if let Some(p) = detected.display() {
+                tracing::info!(proxy = %p, source = "Windows system settings", "auto-applied proxy");
+                config.proxy_url = Some(p);
+            }
+        }
         config.validate()?;
         let client = Client::new(config.clone())?;
         Ok(Self {

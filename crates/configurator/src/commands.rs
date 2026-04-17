@@ -1,7 +1,8 @@
 use crate::claude_config::{default_config_path, read_config, remove_confluence_entry, write_confluence_entry, ConfluenceEntry};
 use crate::installer::{extract_server, probe_writable, resolve_install_dir, default_install_dir};
-use confluence_core::{Client, Config};
+use confluence_core::{Client, Config, ConfluenceError};
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -17,7 +18,11 @@ pub struct LoadedConfig {
     pub ssl_verify: bool,
     pub install_dir: String,
     pub proxy_url: String,
+    /// Proxy string to pre-fill into the input (may be a static proxy, a PAC
+    /// URL, or the WPAD sentinel).
     pub detected_proxy_url: String,
+    /// Which kind of proxy was detected: "static" | "pac" | "wpad" | "".
+    pub detected_proxy_kind: String,
 }
 
 #[tauri::command]
@@ -44,11 +49,24 @@ pub async fn load_existing_config() -> Result<LoadedConfig, String> {
             String::new(),
         ),
     };
-    let detected_proxy_url = crate::system_proxy::detect().unwrap_or_default();
+    let detected = confluence_core::system_proxy::detect();
+    let detected_proxy_url = detected.display().unwrap_or_default();
+    let detected_proxy_kind = if detected.pac_url.is_some() {
+        "pac"
+    } else if detected.static_proxy.is_some() {
+        "static"
+    } else if detected.auto_detect {
+        "wpad"
+    } else {
+        ""
+    }
+    .to_string();
     Ok(LoadedConfig {
         config_exists: existing.path_exists,
         confluence_configured: existing.confluence.is_some(),
-        url, username, password, token, ssl_verify, install_dir, proxy_url, detected_proxy_url,
+        url, username, password, token, ssl_verify, install_dir, proxy_url,
+        detected_proxy_url,
+        detected_proxy_kind,
     })
 }
 
@@ -109,14 +127,36 @@ pub async fn test_connection(args: TestConnectionArgs) -> Result<TestConnectionR
             Ok(TestConnectionResult { success: true, message: format!("Connected! Found {count} space(s).") })
         }
         Err(e) => {
-            let detail = e.to_string();
+            let detail = format_error_chain(&e);
             let msg = match e.status_code() {
                 401 => format!("Authentication failed. Check your username/password or token.\n\n{detail}"),
                 403 if detail.contains("CAPTCHA_CHALLENGE") => format!(
                     "Confluence is requiring CAPTCHA for your account. Open Confluence in a browser, sign in, solve the CAPTCHA, then retry here.\n\n{detail}"
                 ),
                 403 => format!("Confluence refused the request (403). This is usually CAPTCHA, account lockout, or a WAF rule.\n\n{detail}"),
-                0 => format!("Cannot reach the server. Please check:\n- The URL is correct\n- You are connected to VPN (if required)\n- The server is running\n\n{detail}"),
+                0 => {
+                    let mut hints: Vec<&str> = vec![
+                        "- The URL is correct",
+                        "- You are connected to VPN (if required)",
+                        "- The server is running",
+                    ];
+                    let target_is_private = url_host(&args.url)
+                        .map(|h| is_private_or_local_host(&h))
+                        .unwrap_or(false);
+                    let proxy_configured = !args.proxy_url.trim().is_empty();
+                    if target_is_private && proxy_configured {
+                        hints.push(
+                            "- The proxy can route to this address — corporate HTTP proxies \
+                             often refuse internal IPs (10.x / 192.168.x / internal hostnames). \
+                             Try clearing the Proxy field if the Confluence server is on your \
+                             internal network.",
+                        );
+                    }
+                    format!(
+                        "Cannot reach the server. Please check:\n{}\n\n{detail}",
+                        hints.join("\n")
+                    )
+                }
                 code => format!("Error (HTTP {code}): {detail}"),
             };
             Ok(TestConnectionResult { success: false, message: msg })
@@ -299,4 +339,72 @@ pub async fn stop_server() -> Result<StopResult, String> {
             )
         },
     })
+}
+
+/// Walk the error's `source()` chain so the user sees the real cause
+/// ("connection refused", "dns error", "tls handshake failed", …) instead of
+/// just reqwest's generic top-level "error sending request".
+fn format_error_chain(err: &ConfluenceError) -> String {
+    let mut parts = vec![err.to_string()];
+    let mut src: Option<&(dyn std::error::Error + 'static)> = std::error::Error::source(err);
+    while let Some(e) = src {
+        let msg = e.to_string();
+        if !parts.last().is_some_and(|last| last.contains(&msg)) {
+            parts.push(msg);
+        }
+        src = e.source();
+    }
+    parts.join(" → ")
+}
+
+fn url_host(s: &str) -> Option<String> {
+    url::Url::parse(s.trim()).ok().and_then(|u| u.host_str().map(String::from))
+}
+
+/// Returns true for RFC1918 private IPs, loopback, link-local, and plain
+/// hostnames without a dot (e.g. `wiki`, `intranet`) — addresses that
+/// external-facing HTTP proxies typically can't or won't route to.
+fn is_private_or_local_host(host: &str) -> bool {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return match ip {
+            IpAddr::V4(v4) => {
+                v4.is_private() || v4.is_loopback() || v4.is_link_local() || v4.is_unspecified()
+            }
+            IpAddr::V6(v6) => v6.is_loopback() || v6.is_unspecified(),
+        };
+    }
+    let h = host.to_ascii_lowercase();
+    h == "localhost" || !h.contains('.')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn private_ipv4_detected() {
+        assert!(is_private_or_local_host("10.254.136.35"));
+        assert!(is_private_or_local_host("192.168.1.1"));
+        assert!(is_private_or_local_host("172.16.5.5"));
+        assert!(is_private_or_local_host("127.0.0.1"));
+    }
+
+    #[test]
+    fn public_ipv4_not_private() {
+        assert!(!is_private_or_local_host("8.8.8.8"));
+        assert!(!is_private_or_local_host("172.15.0.1")); // just outside 172.16/12
+    }
+
+    #[test]
+    fn bare_hostname_treated_as_local() {
+        assert!(is_private_or_local_host("wiki"));
+        assert!(is_private_or_local_host("intranet"));
+        assert!(is_private_or_local_host("localhost"));
+    }
+
+    #[test]
+    fn fqdn_is_not_local() {
+        assert!(!is_private_or_local_host("wiki.example.com"));
+        assert!(!is_private_or_local_host("confluence.corp.example"));
+    }
 }

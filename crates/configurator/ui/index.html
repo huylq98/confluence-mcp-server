@@ -152,16 +152,19 @@
           <fieldset class="group">
             <legend>Network</legend>
             <label class="field">
-              <span class="field-label">HTTP proxy (optional)</span>
+              <span class="field-label">Proxy (optional)</span>
               <input
                 type="text"
                 id="proxy-url"
-                placeholder="http://proxy.corp:3128"
+                placeholder="http://proxy.corp:3128 or http://proxy.corp/proxy.pac"
                 spellcheck="false"
                 autocapitalize="off"
               />
               <span class="field-hint" id="proxy-hint">
-                Leave blank unless your company routes traffic through a proxy.
+                Leave blank for a direct connection. Accepts a proxy URL
+                (<code>http://host:port</code>) or a PAC script URL
+                (<code>…/proxy.pac</code>). PAC / auto-detect are resolved per
+                request via Windows.
               </span>
             </label>
           </fieldset>

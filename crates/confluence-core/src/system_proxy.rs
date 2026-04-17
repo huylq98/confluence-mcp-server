@@ -1,11 +1,40 @@
 //! Detect the Windows system HTTP proxy so the UI can pre-fill the Proxy field.
 //!
-//! Reads the user's IE/Edge/WinHTTP static proxy via
-//! `WinHttpGetIEProxyConfigForCurrentUser`. PAC-only configurations are not
-//! resolved — the user enters the proxy URL manually in that case.
+//! Reads the user's IE/Edge/WinHTTP proxy config via
+//! `WinHttpGetIEProxyConfigForCurrentUser`. We surface three pieces:
+//!
+//!   * a static proxy URL ("Use a proxy server" setting), or
+//!   * a PAC script URL ("Use setup script" setting), or
+//!   * the auto-detect flag ("Automatically detect settings" / WPAD).
+//!
+//! Corporate networks very commonly rely on PAC or WPAD, so returning only the
+//! static proxy (as earlier versions did) produced a false-negative for most
+//! of the intended user base. See GitHub issue #3.
+
+#[derive(Debug, Default, Clone)]
+pub struct Detected {
+    /// A `http://host:port` URL derived from a static proxy setting.
+    pub static_proxy: Option<String>,
+    /// A `.pac` script URL configured as "Use setup script".
+    pub pac_url: Option<String>,
+    /// `true` if "Automatically detect settings" (WPAD) is enabled.
+    pub auto_detect: bool,
+}
+
+impl Detected {
+    /// The value we pre-fill into the proxy input. PAC takes precedence over
+    /// the static proxy because a user who has both set usually *wants* PAC;
+    /// the static entry is often a leftover. We intentionally do NOT prefill
+    /// a WPAD-only setting — that's a Windows-internal mechanism with no
+    /// user-friendly representation; `auto_detect` is surfaced via a hint so
+    /// the user can enter the PAC URL manually if they know it.
+    pub fn display(&self) -> Option<String> {
+        self.pac_url.clone().or_else(|| self.static_proxy.clone())
+    }
+}
 
 #[cfg(windows)]
-pub fn detect() -> Option<String> {
+pub fn detect() -> Detected {
     use std::ptr;
     use winapi::um::winhttp::{
         WinHttpGetIEProxyConfigForCurrentUser, WINHTTP_CURRENT_USER_IE_PROXY_CONFIG,
@@ -20,10 +49,15 @@ pub fn detect() -> Option<String> {
 
     let ok = unsafe { WinHttpGetIEProxyConfigForCurrentUser(&mut cfg) };
     if ok == 0 {
-        return None;
+        return Detected::default();
     }
 
-    let raw = if cfg.lpszProxy.is_null() {
+    let pac_url = if cfg.lpszAutoConfigUrl.is_null() {
+        None
+    } else {
+        Some(unsafe { wstr_to_string(cfg.lpszAutoConfigUrl) }).filter(|s| !s.trim().is_empty())
+    };
+    let raw_proxy = if cfg.lpszProxy.is_null() {
         None
     } else {
         Some(unsafe { wstr_to_string(cfg.lpszProxy) })
@@ -38,12 +72,16 @@ pub fn detect() -> Option<String> {
         }
     }
 
-    raw.and_then(|s| normalize_ie_proxy(&s))
+    Detected {
+        static_proxy: raw_proxy.and_then(|s| normalize_ie_proxy(&s)),
+        pac_url,
+        auto_detect: cfg.fAutoDetect != 0,
+    }
 }
 
 #[cfg(not(windows))]
-pub fn detect() -> Option<String> {
-    None
+pub fn detect() -> Detected {
+    Detected::default()
 }
 
 #[cfg(windows)]
@@ -128,5 +166,33 @@ mod tests {
             normalize_ie_proxy("http://p.corp:3128"),
             Some("http://p.corp:3128".into())
         );
+    }
+
+    #[test]
+    fn display_prefers_pac_over_static() {
+        let d = Detected {
+            static_proxy: Some("http://old-static:3128".into()),
+            pac_url: Some("http://proxy.corp/proxy.pac".into()),
+            auto_detect: false,
+        };
+        assert_eq!(d.display().as_deref(), Some("http://proxy.corp/proxy.pac"));
+    }
+
+    #[test]
+    fn display_falls_back_to_static_but_not_wpad_only() {
+        let d = Detected {
+            static_proxy: Some("http://proxy:3128".into()),
+            pac_url: None,
+            auto_detect: true,
+        };
+        assert_eq!(d.display().as_deref(), Some("http://proxy:3128"));
+
+        // WPAD-only: no user-friendly value, so display() is None.
+        let d = Detected {
+            static_proxy: None,
+            pac_url: None,
+            auto_detect: true,
+        };
+        assert_eq!(d.display(), None);
     }
 }
