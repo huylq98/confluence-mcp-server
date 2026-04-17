@@ -4,6 +4,7 @@ use tracing_subscriber::EnvFilter;
 
 mod format;
 mod handler;
+mod recorder;
 mod tools;
 
 use handler::ConfluenceServer;
