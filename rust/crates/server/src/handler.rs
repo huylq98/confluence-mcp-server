@@ -18,6 +18,14 @@ pub struct ListSpacesArgs {
     pub limit: Option<u32>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SearchArgs {
+    /// A CQL query string (e.g. 'type=page AND text~"deployment"').
+    pub cql: String,
+    /// Maximum results to return (1–50, default 10).
+    pub limit: Option<u32>,
+}
+
 #[derive(Clone)]
 pub struct ConfluenceServer {
     pub(crate) client: Arc<Client>,
@@ -40,6 +48,20 @@ impl ConfluenceServer {
 
     pub fn confluence_url(&self) -> &str {
         &self.config.confluence_url
+    }
+
+    #[tool(description = "Search Confluence pages using CQL (Confluence Query Language).")]
+    async fn search_confluence(
+        &self,
+        Parameters(args): Parameters<SearchArgs>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let limit = args.limit.unwrap_or(10).clamp(1, 50);
+        match self.client.search(&args.cql, limit, "space,version,metadata.labels").await {
+            Ok(data) => Ok(CallToolResult::success(vec![Content::text(
+                crate::tools::search_confluence::format(&data, &self.config.confluence_url),
+            )])),
+            Err(e) => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
+        }
     }
 
     #[tool(description = "List Confluence spaces the authenticated user can access.")]
