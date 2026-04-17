@@ -132,6 +132,16 @@ urlInput.addEventListener("input", () => { updateUrlBadge(); updatePatLink(); })
 updateUrlBadge();
 updatePatLink();
 
+$("pat-link").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  if ($("pat-link").getAttribute("aria-disabled") === "true") return;
+  const href = $("pat-link").getAttribute("href");
+  if (!href || href === "#") return;
+  invoke("open_external_url", { url: href }).catch((e) => {
+    setStatus("err", "Failed to open PAT settings: " + e);
+  });
+});
+
 /* ── Initial load ───────────────────────────────────────────────────── */
 async function init() {
   try {

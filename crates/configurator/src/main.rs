@@ -81,6 +81,7 @@ fn main() {
             commands::test_live_connection,
             commands::copy_diagnostics,
             commands::open_claude_log,
+            commands::open_external_url,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start Tauri app");

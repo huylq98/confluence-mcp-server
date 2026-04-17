@@ -477,6 +477,17 @@ pub async fn open_claude_log() -> Result<(), String> {
     opener::open(&logs).map_err(|e| format!("Failed to open folder: {e}"))
 }
 
+#[tauri::command]
+pub async fn open_external_url(url: String) -> Result<(), String> {
+    // Minimal guard: only allow http(s) URLs to prevent opening arbitrary
+    // schemes (e.g., file://, javascript:) if this command is ever called
+    // with untrusted input.
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        return Err(format!("Refusing to open non-http(s) URL: {url}"));
+    }
+    opener::open(&url).map_err(|e| format!("Failed to open URL: {e}"))
+}
+
 /// Walk the error's `source()` chain so the user sees the real cause
 /// ("connection refused", "dns error", "tls handshake failed", …) instead of
 /// just reqwest's generic top-level "error sending request".
