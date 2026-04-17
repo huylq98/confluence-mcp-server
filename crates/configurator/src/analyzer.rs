@@ -17,6 +17,7 @@ const OVERSIZED_TOKENS: usize = 20_000;
 const REPEAT_FETCH_THRESHOLD: usize = 5;
 const FREQUENT_403_THRESHOLD: usize = 3;
 const HIGH_ERROR_RATE: f64 = 0.10;
+const MIN_CALLS_FOR_ERROR_RATE: usize = 10;
 
 pub fn analyze(history: &[HistoryRow], now_ts: i64) -> Vec<Tip> {
     let cutoff = now_ts - SEVEN_DAYS_SECS;
@@ -58,7 +59,7 @@ fn oversized_output(rows: &[&HistoryRow]) -> Option<Tip> {
 }
 
 fn high_error_rate(rows: &[&HistoryRow]) -> Option<Tip> {
-    if rows.is_empty() { return None; }
+    if rows.len() < MIN_CALLS_FOR_ERROR_RATE { return None; }
     let errors = rows.iter().filter(|r| r.status != "ok").count();
     let rate = errors as f64 / rows.len() as f64;
     if rate < HIGH_ERROR_RATE { return None; }
@@ -151,5 +152,43 @@ mod tests {
         let rows: Vec<HistoryRow> = (0..5).map(|i| row(now - eight_days - i, "get_page", "ok", 100, json!({"page_id":"42"}))).collect();
         let tips = analyze(&rows, now);
         assert!(!tips.iter().any(|t| t.id == "repeated_page_fetch"));
+    }
+
+    #[test]
+    fn high_error_rate_silent_on_fresh_install() {
+        // 2 calls with 1 error = 50%, but below the MIN_CALLS threshold.
+        let now = 1_700_000_000;
+        let rows = vec![
+            row(now - 5, "get_page", "ok", 100, json!({"page_id":"1"})),
+            row(now - 10, "get_page", "500", 100, json!({"page_id":"1"})),
+        ];
+        let tips = analyze(&rows, now);
+        assert!(!tips.iter().any(|t| t.id == "high_error_rate"),
+            "high_error_rate should not fire with only 2 calls even if error rate is high");
+    }
+
+    #[test]
+    fn oversized_output_does_not_fire_at_exact_boundary() {
+        // tokens_est == 20_000 is NOT > 20_000, so must not fire.
+        let now = 1_700_000_000;
+        let rows = vec![row(now, "search_confluence", "ok", 20_000, json!({}))];
+        let tips = analyze(&rows, now);
+        assert!(!tips.iter().any(|t| t.id == "oversized_output"));
+    }
+
+    #[test]
+    fn analyze_returns_multiple_tips_when_multiple_rules_fire() {
+        // Arrange: enough data to trigger repeated_page_fetch AND oversized_output.
+        // - 5 fetches of page 42 (triggers repeated_page_fetch)
+        // - one 25k-token call (triggers oversized_output)
+        let now = 1_700_000_000;
+        let mut rows: Vec<HistoryRow> = (0..5)
+            .map(|i| row(now - i, "get_page", "ok", 100, json!({"page_id":"42"})))
+            .collect();
+        rows.push(row(now - 100, "search_confluence", "ok", 25_000, json!({})));
+        let tips = analyze(&rows, now);
+        assert!(tips.iter().any(|t| t.id == "repeated_page_fetch"));
+        assert!(tips.iter().any(|t| t.id == "oversized_output"));
+        assert!(tips.len() >= 2);
     }
 }
