@@ -1,16 +1,26 @@
 # Confluence MCP Server
 
-An MCP (Model Context Protocol) server that connects Claude Desktop to a self-hosted **Confluence Server / Data Center** instance, with a Tauri 2 desktop wizard for non-technical setup.
+An MCP (Model Context Protocol) server that connects Claude Desktop to a self-hosted **Confluence Server / Data Center** instance, plus a Tauri 2 desktop wizard for setup and monitoring.
 
 ## Install
 
 1. Download `ConfluenceMCPSetup.exe` from the [latest release](../../releases/latest) (~2.8 MB).
-2. Double-click — the wizard opens.
+2. Double-click — the wizard opens on the **Setup** tab.
 3. Enter your Confluence URL and a Personal Access Token (or username/password).
-4. Click **Test Connection**, then **Save**.
-5. Restart Claude Desktop.
+4. Click **Test connection**, then **Save & finish**.
+5. **Fully quit Claude Desktop** (tray icon → Exit) and reopen it. The MCP server is now wired in.
 
-No Python, no terminal, no config files to edit. The exe bundles everything needed.
+No Python, no terminal, no config files to edit. The exe bundles everything needed. If Windows SmartScreen warns about an unknown publisher, click **More info → Run anyway** (the build is unsigned).
+
+## Monitor & uninstall
+
+Re-run `ConfluenceMCPSetup.exe` any time — the **Monitor** tab opens by default when you already have a configuration. It shows:
+
+- Live **running / not running** status (the MCP server is a child process that Claude Desktop spawns on startup — if Claude Desktop isn't open, the server isn't running either).
+- PID and memory usage, refreshed every 3 s.
+- **Edit credentials** — jumps back to the Setup tab with your current values pre-filled.
+- **Stop process** — kills the running instance (Claude Desktop will relaunch it).
+- **Turn off & remove** — unregisters the MCP server from Claude Desktop and deletes the installed binary. Fully quit and relaunch Claude Desktop afterwards.
 
 ---
 
@@ -43,15 +53,15 @@ powershell -ExecutionPolicy Bypass -File scripts/build.ps1
 
 ## Authentication
 
+The wizard writes your credentials into `claude_desktop_config.json` as environment variables on the MCP server entry — you don't edit anything by hand. This section documents what ends up in that file (useful for debugging or scripting).
+
 ### Personal Access Token (recommended for Data Center 7.9+)
 
 ```env
 CONFLUENCE_TOKEN=your_pat_here
 ```
 
-Generate at: **Profile → Settings → Personal Access Tokens**
-
-PATs are preferred because they can be individually revoked, don't expose the user's main password, and can be set to expire.
+Generate at: **Profile → Settings → Personal Access Tokens**. PATs can be individually revoked, don't expose the user's main password, and can be set to expire.
 
 ### Basic Auth (username + password)
 
@@ -60,9 +70,7 @@ CONFLUENCE_USERNAME=jsmith
 CONFLUENCE_PASSWORD=secretpassword
 ```
 
-Works with all Confluence Server versions.
-
-> When `CONFLUENCE_TOKEN` is set, it takes priority over username/password.
+Works with all Confluence Server versions. When `CONFLUENCE_TOKEN` is set, it takes priority over username/password.
 
 ---
 
@@ -94,13 +102,9 @@ title~"release notes" AND space IN (DEV, OPS)
 
 ## SSL / Self-Signed Certificates
 
-For Confluence instances behind self-signed certificates:
+The wizard has a **Verify SSL certificate** checkbox — uncheck it for self-signed certs. If you need to pin a specific CA bundle, edit `claude_desktop_config.json` and add:
 
 ```env
-# Disable SSL verification (development only!)
-CONFLUENCE_SSL_VERIFY=false
-
-# OR provide a custom CA bundle (production)
 CONFLUENCE_CA_BUNDLE=/path/to/your-company-ca.crt
 ```
 
