@@ -1,5 +1,7 @@
+use crate::analyzer::{analyze, Tip};
 use crate::claude_config::{default_config_path, read_config, remove_confluence_entry, write_confluence_entry, ConfluenceEntry};
 use crate::installer::{extract_server, probe_writable, resolve_install_dir, default_install_dir};
+use crate::stats::{read_errors, read_history, summarize, StatsSummary};
 use confluence_core::{Client, Config, ConfluenceError};
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
@@ -339,6 +341,132 @@ pub async fn stop_server() -> Result<StopResult, String> {
             )
         },
     })
+}
+
+fn install_dir_from_config() -> Option<PathBuf> {
+    let existing = read_config(&default_config_path()).ok()?;
+    let cmd = existing.confluence?.command;
+    PathBuf::from(cmd).parent().map(|p| p.to_path_buf())
+}
+
+#[tauri::command]
+pub async fn get_stats() -> Result<StatsSummary, String> {
+    let dir = install_dir_from_config().ok_or_else(|| "Not configured yet.".to_string())?;
+    let history = read_history(&dir);
+    let errors = read_errors(&dir);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    Ok(summarize(&history, &errors, now))
+}
+
+#[tauri::command]
+pub async fn get_recommendations() -> Result<Vec<Tip>, String> {
+    let dir = install_dir_from_config().ok_or_else(|| "Not configured yet.".to_string())?;
+    let history = read_history(&dir);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    Ok(analyze(&history, now))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveTestResult {
+    pub success: bool,
+    pub message: String,
+    pub latency_ms: u64,
+    pub space_count: usize,
+}
+
+#[tauri::command]
+pub async fn test_live_connection() -> Result<LiveTestResult, String> {
+    let existing = read_config(&default_config_path()).map_err(|e| e.to_string())?;
+    let entry = existing.confluence.ok_or_else(|| "Not configured yet.".to_string())?;
+
+    let cfg = Config {
+        confluence_url: entry.url.trim_end_matches('/').into(),
+        username: entry.username,
+        password: entry.password,
+        token: entry.token,
+        ssl_verify: entry.ssl_verify,
+        ca_bundle: None,
+        proxy_url: entry.proxy_url,
+        timeout: Duration::from_secs(10),
+        rate_limit: 5,
+        max_content_length: 50_000,
+        default_search_limit: 10,
+        log_level: "WARN".into(),
+    };
+
+    let client = Client::new(cfg).map_err(|e| e.to_string())?;
+    let started = std::time::Instant::now();
+    match client.list_spaces(Some("global"), 5, "").await {
+        Ok(data) => {
+            let latency_ms = started.elapsed().as_millis() as u64;
+            let count = data.pointer("/results").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+            Ok(LiveTestResult {
+                success: true,
+                message: format!("OK · {count} space(s) · {latency_ms} ms"),
+                latency_ms,
+                space_count: count,
+            })
+        }
+        Err(e) => {
+            let latency_ms = started.elapsed().as_millis() as u64;
+            Ok(LiveTestResult {
+                success: false,
+                message: format_error_chain(&e),
+                latency_ms,
+                space_count: 0,
+            })
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn copy_diagnostics() -> Result<String, String> {
+    let dir = install_dir_from_config().ok_or_else(|| "Not configured yet.".to_string())?;
+    let history = read_history(&dir);
+    let errors = read_errors(&dir);
+
+    let mut md = String::new();
+    md.push_str("# Confluence Connect — diagnostics\n\n");
+    md.push_str(&format!("## Recent tool calls ({} rows, newest last)\n\n", history.len().min(100)));
+    md.push_str("| ts | tool | args | tokens | status |\n|---|---|---|---|---|\n");
+    for r in history.iter().rev().take(100).rev() {
+        md.push_str(&format!(
+            "| {} | {} | {} | {} | {} |\n",
+            r.ts, r.tool, r.args, r.tokens_est, r.status,
+        ));
+    }
+    md.push_str("\n## Recent errors\n\n");
+    for e in errors.iter().take(20) {
+        md.push_str(&format!("- `{}` · **{}** · {}: {}\n", e.ts, e.tool, e.status, e.message));
+    }
+    md.push_str(
+        "\n---\nPlease analyze usage patterns and suggest ways to reduce token usage, \
+         avoid repeated fetches, or narrow my CQL queries. Any error patterns I should fix?\n",
+    );
+
+    arboard::Clipboard::new()
+        .and_then(|mut cb| cb.set_text(md.clone()))
+        .map_err(|e| format!("Clipboard error: {e}"))?;
+    Ok(format!("Copied {} chars to clipboard — paste into Claude Desktop.", md.len()))
+}
+
+#[tauri::command]
+pub async fn open_claude_log() -> Result<(), String> {
+    // Windows: %APPDATA%\Claude\logs\
+    let appdata = std::env::var_os("APPDATA")
+        .ok_or_else(|| "APPDATA env var not set".to_string())?;
+    let logs = PathBuf::from(appdata).join("Claude").join("logs");
+    if !logs.exists() {
+        return Err(format!("Log folder not found at {}", logs.display()));
+    }
+    opener::open(&logs).map_err(|e| format!("Failed to open folder: {e}"))
 }
 
 /// Walk the error's `source()` chain so the user sees the real cause

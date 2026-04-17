@@ -76,6 +76,11 @@ fn main() {
             commands::remove_config,
             commands::server_status,
             commands::stop_server,
+            commands::get_stats,
+            commands::get_recommendations,
+            commands::test_live_connection,
+            commands::copy_diagnostics,
+            commands::open_claude_log,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start Tauri app");
