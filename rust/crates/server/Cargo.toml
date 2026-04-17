@@ -1,6 +1,25 @@
 [package]
-name = "confluence-server"
+name = "server"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+
+[[bin]]
+name = "confluence-mcp-server"
+path = "src/main.rs"
+
+[dependencies]
+confluence-core = { path = "../confluence-core" }
+rmcp = { version = "0.8", features = ["server", "macros", "transport-io"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = "0.8"
+tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = "1"
+
+[dev-dependencies]
+wiremock = "0.6"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
