@@ -840,3 +840,25 @@ button:focus-visible {
   opacity: 0.35;
   pointer-events: none;
 }
+
+/* ── "You're set." post-save panel ─────────────────────────────────── */
+.youre-set {
+  padding: 24px 4px 12px;
+  animation: fadein .3s ease;
+}
+.youre-set-title {
+  font-family: "Fraunces", serif;
+  font-size: 28px;
+  margin: 0 0 6px;
+}
+.youre-set-subtitle { opacity: 0.7; margin: 0 0 14px; }
+.youre-set-steps { line-height: 1.7; }
+.youre-set-examples {
+  margin-top: 6px;
+  padding-left: 18px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.youre-set-examples li { margin: 3px 0; }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }

@@ -33,6 +33,12 @@ function setStatus(kind, msg) {
 /* ── View switching ─────────────────────────────────────────────────── */
 function switchView(name) {
   if (name === currentView) return;
+  // When navigating back to Setup, make sure the form is visible and the
+  // "You're set." panel is hidden (covers the Edit-credentials round-trip).
+  if (name === "setup") {
+    $("youre-set").hidden = true;
+    $("wizard").hidden = false;
+  }
   $$(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
   $$(".view-tab").forEach((t) => {
     const on = t.dataset.view === name;
@@ -252,12 +258,14 @@ $("btn-save").addEventListener("click", async () => {
     if (result.success) {
       state = "idle";
       setStep(3, "done");
-      // Repaint the monitor view with the new config and switch to it.
+      // Prepare the monitor view in the background, but let the user
+      // read the "You're set." checklist before advancing.
       const latest = await invoke("load_existing_config");
       enableMonitorTab(true);
       paintMonitorDetails(latest);
-      switchView("monitor");
       setStatus("ok", result.message);
+      $("wizard").hidden = true;
+      $("youre-set").hidden = false;
     } else {
       state = "tested";
       setStatus("err", result.message);
@@ -270,6 +278,12 @@ $("btn-save").addEventListener("click", async () => {
     $("btn-save").disabled = false;
     $("btn-test").disabled = false;
   }
+});
+
+$("btn-to-monitor").addEventListener("click", () => {
+  $("youre-set").hidden = true;
+  $("wizard").hidden = false;
+  switchView("monitor");
 });
 
 /* ── Monitor actions ───────────────────────────────────────────────── */
