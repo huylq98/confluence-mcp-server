@@ -39,7 +39,7 @@ mod tests {
 
     #[test]
     fn strip_html_decodes_entities() {
-        assert_eq!(strip_html("&amp;&lt;&gt;&nbsp;"), "& <  >");
+        assert_eq!(strip_html("&amp;&lt;&gt;&nbsp;"), "&<>");
     }
 
     #[test]

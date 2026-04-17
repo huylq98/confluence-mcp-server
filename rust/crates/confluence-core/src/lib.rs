@@ -1,8 +1,10 @@
+pub mod client;
 pub mod config;
 pub mod error;
 pub mod format;
 pub mod url_parse;
 
+pub use client::Client;
 pub use config::Config;
 pub use error::ConfluenceError;
 pub use format::{strip_html, truncate};
