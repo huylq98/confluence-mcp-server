@@ -19,6 +19,9 @@ venv/
 # ---- Build tools (downloaded locally) ----
 tools/
 
+# ---- Worktrees ----
+.worktrees/
+
 # ---- IDE ----
 .vscode/
 .idea/
