@@ -55,7 +55,7 @@
         <section class="intro">
           <h1>
             Connect Claude Desktop<br />
-            <em>to your wiki.</em>
+            <em>to Confluence.</em>
           </h1>
           <p class="lede">A one-time setup, typically under two minutes.</p>
         </section>
@@ -80,14 +80,17 @@
             <legend>Server</legend>
             <label class="field">
               <span class="field-label">Confluence URL</span>
-              <input
-                type="url"
-                id="url"
-                placeholder="https://wiki.example.com"
-                spellcheck="false"
-                autocapitalize="off"
-                required
-              />
+              <div class="input-wrap">
+                <input
+                  type="url"
+                  id="url"
+                  placeholder="https://confluence.example.com"
+                  spellcheck="false"
+                  autocapitalize="off"
+                  required
+                />
+                <span class="url-badge" id="url-badge" data-state="empty"></span>
+              </div>
               <span class="field-hint">The full address you use in a browser.</span>
             </label>
           </fieldset>
@@ -117,7 +120,10 @@
 
             <div id="auth-token" class="seg-panel active" role="tabpanel">
               <label class="field">
-                <span class="field-label">Personal access token</span>
+                <span class="field-label">
+                  Personal access token
+                  <a id="pat-link" class="field-link" href="#" target="_blank" rel="noopener" aria-disabled="true">Get your token →</a>
+                </span>
                 <input type="password" id="token" autocomplete="off" spellcheck="false" />
                 <span class="field-hint">
                   Find it in Confluence under <kbd>Profile → Personal Access Tokens</kbd>.

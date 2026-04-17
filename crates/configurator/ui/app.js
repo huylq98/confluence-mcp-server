@@ -88,11 +88,49 @@ $$(".seg-btn").forEach((btn) => {
   });
 });
 
+/* ── URL validation badge + PAT deep-link ────────────────────────────── */
+const urlInput = $("url");
+const urlBadge = $("url-badge");
+const patLink = $("pat-link");
+
+function updateUrlBadge() {
+  const v = urlInput.value.trim();
+  if (!v) { urlBadge.dataset.state = "empty"; urlBadge.textContent = ""; return; }
+  try {
+    const u = new URL(v);
+    if (u.protocol === "https:") { urlBadge.dataset.state = "ok";   urlBadge.textContent = "HTTPS ✓"; }
+    else if (u.protocol === "http:") { urlBadge.dataset.state = "warn"; urlBadge.textContent = "HTTP ⚠"; }
+    else { urlBadge.dataset.state = "bad"; urlBadge.textContent = "✗"; }
+  } catch {
+    urlBadge.dataset.state = "bad";
+    urlBadge.textContent = "✗";
+  }
+}
+
+function updatePatLink() {
+  const v = urlInput.value.trim();
+  try {
+    const u = new URL(v);
+    const base = `${u.protocol}//${u.host}`;
+    patLink.href = `${base}/plugins/personalaccesstokens/usertokens.action`;
+    patLink.setAttribute("aria-disabled", "false");
+  } catch {
+    patLink.href = "#";
+    patLink.setAttribute("aria-disabled", "true");
+  }
+}
+
+urlInput.addEventListener("input", () => { updateUrlBadge(); updatePatLink(); });
+updateUrlBadge();
+updatePatLink();
+
 /* ── Initial load ───────────────────────────────────────────────────── */
 async function init() {
   try {
     const cfg = await invoke("load_existing_config");
     $("url").value = cfg.url || "";
+    updateUrlBadge();
+    updatePatLink();
     $("username").value = cfg.username || "";
     $("password").value = cfg.password || "";
     $("token").value = cfg.token || "";

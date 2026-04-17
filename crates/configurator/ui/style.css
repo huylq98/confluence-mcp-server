@@ -805,3 +805,36 @@ button:focus-visible {
 .shell::-webkit-scrollbar-track   { background: transparent; }
 .shell::-webkit-scrollbar-thumb   { background: var(--line-strong); border-radius: 3px; }
 .shell::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
+
+/* ── URL validation badge ───────────────────────────────────────────── */
+.input-wrap { position: relative; }
+.url-badge {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-family: "IBM Plex Mono", monospace;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.url-badge[data-state="ok"]    { opacity: 1; background: #dcfce7; color: #14532d; }
+.url-badge[data-state="warn"]  { opacity: 1; background: #fef3c7; color: #78350f; }
+.url-badge[data-state="bad"]   { opacity: 1; background: #fee2e2; color: #7f1d1d; }
+.url-badge[data-state="empty"] { opacity: 0; }
+
+/* ── PAT deep-link ──────────────────────────────────────────────────── */
+.field-link {
+  float: right;
+  font-size: 11px;
+  color: var(--accent, #555);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.field-link[aria-disabled="true"] {
+  opacity: 0.35;
+  pointer-events: none;
+}
