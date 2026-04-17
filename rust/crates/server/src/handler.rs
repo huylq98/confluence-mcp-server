@@ -3,9 +3,20 @@ use confluence_core::{Client, Config};
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
-    tool_handler, tool_router, ServerHandler,
+    tool, tool_handler, tool_router, ServerHandler,
 };
+use rmcp::schemars::JsonSchema;
+use serde::Deserialize;
 use std::sync::Arc;
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListSpacesArgs {
+    /// Filter by space type — 'global', 'personal', or 'all'. Defaults to 'global'.
+    #[serde(rename = "type")]
+    pub space_type: Option<String>,
+    /// Maximum spaces to return (default 50).
+    pub limit: Option<u32>,
+}
 
 #[derive(Clone)]
 pub struct ConfluenceServer {
@@ -29,6 +40,22 @@ impl ConfluenceServer {
 
     pub fn confluence_url(&self) -> &str {
         &self.config.confluence_url
+    }
+
+    #[tool(description = "List Confluence spaces the authenticated user can access.")]
+    async fn list_spaces(
+        &self,
+        Parameters(args): Parameters<ListSpacesArgs>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let space_type = match args.space_type.as_deref() {
+            Some("all") | None => None,
+            Some(other) => Some(other),
+        };
+        let limit = args.limit.unwrap_or(50);
+        match self.client.list_spaces(space_type, limit, "description.plain").await {
+            Ok(data) => Ok(CallToolResult::success(vec![Content::text(crate::tools::list_spaces::format(&data))])),
+            Err(e) => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
+        }
     }
 }
 
