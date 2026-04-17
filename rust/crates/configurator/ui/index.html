@@ -2,13 +2,63 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Confluence MCP Setup</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <main>
-      <h1>Confluence MCP Setup</h1>
-      <p>Wizard UI will be built in Task 24.</p>
+      <header>
+        <h1>Confluence MCP Setup</h1>
+        <p class="subtitle">Connect Claude Desktop to your Confluence instance.</p>
+      </header>
+
+      <form id="wizard" autocomplete="off">
+        <fieldset>
+          <legend>Server</legend>
+          <label>Confluence URL
+            <input type="url" id="url" placeholder="https://wiki.example.com" required />
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Authentication</legend>
+          <div class="tabs">
+            <button type="button" class="tab active" data-target="auth-token">Token</button>
+            <button type="button" class="tab" data-target="auth-basic">Username &amp; Password</button>
+          </div>
+          <div id="auth-token" class="panel active">
+            <label>Personal Access Token
+              <input type="password" id="token" autocomplete="off" />
+            </label>
+          </div>
+          <div id="auth-basic" class="panel">
+            <label>Username <input type="text" id="username" autocomplete="off" /></label>
+            <label>Password <input type="password" id="password" autocomplete="off" /></label>
+          </div>
+          <label class="checkbox">
+            <input type="checkbox" id="ssl-verify" checked />
+            Verify SSL certificate
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Install location</legend>
+          <div class="path-row">
+            <input type="text" id="install-dir" readonly />
+            <button type="button" id="pick-dir">Change…</button>
+          </div>
+          <p class="hint" id="path-hint"></p>
+        </fieldset>
+
+        <div class="actions">
+          <button type="button" id="btn-test">Test Connection</button>
+          <button type="button" id="btn-save" disabled>Save</button>
+          <button type="button" id="btn-remove" class="link">Remove…</button>
+        </div>
+
+        <div id="status" class="status"></div>
+      </form>
     </main>
     <script src="app.js"></script>
   </body>
