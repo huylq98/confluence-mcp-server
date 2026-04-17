@@ -241,6 +241,10 @@
               <span class="monitor-card-status" id="status-text">checking…</span>
               <span class="monitor-card-meta" id="status-meta"></span>
             </div>
+            <button type="button" id="btn-test-live" class="btn btn-secondary btn-inline">
+              <span class="btn-label">Test live</span>
+              <span class="btn-arrow">→</span>
+            </button>
           </div>
 
           <dl class="monitor-details" id="monitor-details">
@@ -286,6 +290,18 @@
           <ul id="errors-list" class="errors-list"></ul>
         </details>
 
+        <!-- Analyzer sidebar -->
+        <div class="mini-card" id="analyzer-card">
+          <div class="mini-card-head">
+            <span class="mini-card-label">For you this week</span>
+            <button type="button" id="btn-copy-diag" class="ghost">Copy diagnostics for Claude</button>
+          </div>
+          <ul id="analyzer-list" class="analyzer-list"></ul>
+          <div class="mini-card-note" id="analyzer-empty" hidden>
+            Not enough data yet — tips appear after a few tool calls.
+          </div>
+        </div>
+
         <div id="monitor-status" class="status" aria-live="polite"></div>
 
         <div class="monitor-actions">
@@ -297,6 +313,8 @@
             <span class="btn-label">Stop process</span>
           </button>
         </div>
+
+        <a class="log-link" id="open-claude-log">Open Claude Desktop log →</a>
 
         <div class="monitor-danger">
           <div class="danger-text">

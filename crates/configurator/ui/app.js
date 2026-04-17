@@ -52,6 +52,7 @@ function switchView(name) {
   if (name === "monitor") {
     startStatusPolling();
     refreshMonitorStats();
+    refreshAnalyzer();
   } else {
     stopStatusPolling();
   }
@@ -367,10 +368,14 @@ function startStatusPolling() {
   if (statusTimer) return;
   refreshStatus();
   refreshMonitorStats();
+  refreshAnalyzer();
   statusTimer = setInterval(() => {
     refreshStatus();
     tickCounter += 1;
-    if (tickCounter % 2 === 0) refreshMonitorStats();
+    if (tickCounter % 2 === 0) {
+      refreshMonitorStats();
+      refreshAnalyzer();
+    }
   }, 3000);
 }
 
@@ -489,3 +494,69 @@ $("wizard").addEventListener("keydown", (e) => {
 });
 
 init();
+
+/* ── Monitor: Test live ─────────────────────────────────────────────── */
+$("btn-test-live").addEventListener("click", async () => {
+  const btn = $("btn-test-live");
+  btn.disabled = true;
+  setStatus("info", "Testing live connection…");
+  try {
+    const r = await invoke("test_live_connection");
+    if (r.success) setStatus("ok", r.message);
+    else setStatus("err", r.message);
+  } catch (e) {
+    setStatus("err", String(e));
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ── Monitor: analyzer sidebar ──────────────────────────────────────── */
+async function refreshAnalyzer() {
+  let tips = [];
+  try {
+    tips = await invoke("get_recommendations");
+  } catch (_) {
+    return;
+  }
+  const list = $("analyzer-list");
+  const empty = $("analyzer-empty");
+  list.innerHTML = "";
+  if (tips.length === 0) {
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  for (const t of tips) {
+    const li = document.createElement("li");
+    const title = document.createElement("div");
+    title.className = "tip-title";
+    title.textContent = t.title;
+    const detail = document.createElement("div");
+    detail.className = "tip-detail";
+    detail.textContent = t.detail;
+    li.appendChild(title);
+    li.appendChild(detail);
+    list.appendChild(li);
+  }
+}
+
+/* ── Monitor: Copy diagnostics ──────────────────────────────────────── */
+$("btn-copy-diag").addEventListener("click", async () => {
+  try {
+    const msg = await invoke("copy_diagnostics");
+    setStatus("ok", msg);
+  } catch (e) {
+    setStatus("err", String(e));
+  }
+});
+
+/* ── Monitor: Open Claude log ───────────────────────────────────────── */
+$("open-claude-log").addEventListener("click", async (ev) => {
+  ev.preventDefault();
+  try {
+    await invoke("open_claude_log");
+  } catch (e) {
+    setStatus("err", String(e));
+  }
+});
