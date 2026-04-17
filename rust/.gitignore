@@ -1,0 +1,4 @@
+target/
+**/*.rs.bk
+crates/configurator/resources/confluence-mcp-server.exe
+dist/
