@@ -19,6 +19,14 @@ pub struct ListSpacesArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetPageByTitleArgs {
+    /// The space key (e.g. 'DEV', 'TEAM', 'HR').
+    pub space_key: String,
+    /// The exact page title to look for.
+    pub title: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetPageArgs {
     /// The numeric page ID (e.g. '3965072').
     pub page_id: String,
@@ -58,6 +66,27 @@ impl ConfluenceServer {
 
     pub fn confluence_url(&self) -> &str {
         &self.config.confluence_url
+    }
+
+    #[tool(description = "Find a Confluence page by its exact title within a space.")]
+    async fn get_page_by_title(
+        &self,
+        Parameters(args): Parameters<GetPageByTitleArgs>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let expand = "body.storage,version,space,metadata.labels,ancestors";
+        match self.client.get_page_by_title(&args.space_key, &args.title, expand).await {
+            Ok(data) => {
+                let empty = vec![];
+                let results = data.pointer("/results").and_then(|v| v.as_array()).unwrap_or(&empty);
+                let text = if results.is_empty() {
+                    crate::tools::get_page_by_title::format_not_found(&args.space_key, &args.title)
+                } else {
+                    crate::tools::get_page_by_title::format_found(&results[0], &args.space_key, &self.config.confluence_url, self.config.max_content_length)
+                };
+                Ok(CallToolResult::success(vec![Content::text(text)]))
+            }
+            Err(e) => Ok(CallToolResult::success(vec![Content::text(crate::format::error_response(&e))])),
+        }
     }
 
     #[tool(description = "Retrieve a Confluence page's full content by its numeric ID.")]
