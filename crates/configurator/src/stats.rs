@@ -79,7 +79,7 @@ pub fn summarize(history: &[HistoryRow], errors: &[ErrorRow], now_ts: i64) -> St
     let mut daily: BTreeMap<String, (usize, usize)> = BTreeMap::new();
 
     for row in history {
-        let ts = Utc.timestamp_opt(row.ts, 0).single().unwrap_or_else(Utc::now);
+        let Some(ts) = Utc.timestamp_opt(row.ts, 0).single() else { continue };
         let local_date = ts.with_timezone(&Local).date_naive();
         let key = local_date.format("%Y-%m-%d").to_string();
         let entry = daily.entry(key).or_insert((0, 0));
@@ -93,8 +93,10 @@ pub fn summarize(history: &[HistoryRow], errors: &[ErrorRow], now_ts: i64) -> St
     }
 
     let today_errors = errors.iter().filter(|e| {
-        let ts = Utc.timestamp_opt(e.ts, 0).single().unwrap_or_else(Utc::now);
-        ts.with_timezone(&Local).date_naive() == today_local
+        Utc.timestamp_opt(e.ts, 0)
+            .single()
+            .map(|ts| ts.with_timezone(&Local).date_naive() == today_local)
+            .unwrap_or(false)
     }).count();
 
     let mut seven_day_tokens = Vec::with_capacity(7);
@@ -176,6 +178,27 @@ mod tests {
         assert_eq!(s.recent_errors.len(), 20);
         assert_eq!(s.recent_errors[0].message, "err0");
         assert_eq!(s.recent_errors[19].message, "err19");
+    }
+
+    #[test]
+    fn old_rows_not_in_seven_day_window() {
+        let now = 1_700_000_000;
+        let history = vec![row(now - 30 * 86_400, "get_page", 500, "ok")];
+        let s = summarize(&history, &[], now);
+        assert!(s.seven_day_tokens.iter().all(|d| d.tokens == 0));
+        assert_eq!(s.today_calls, 0);
+    }
+
+    #[test]
+    fn last_call_ts_is_maximum_not_insertion_order() {
+        let now = 1_700_000_000;
+        let history = vec![
+            row(now - 5, "get_page", 100, "ok"),
+            row(now - 1, "get_page", 100, "ok"),
+            row(now - 10, "get_page", 100, "ok"),
+        ];
+        let s = summarize(&history, &[], now);
+        assert_eq!(s.last_call_ts, Some(now - 1));
     }
 
     #[test]
