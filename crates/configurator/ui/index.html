@@ -55,7 +55,7 @@
         <section class="intro">
           <h1>
             Connect Claude Desktop<br />
-            <em>to your wiki.</em>
+            <em>to Confluence.</em>
           </h1>
           <p class="lede">A one-time setup, typically under two minutes.</p>
         </section>
@@ -80,14 +80,17 @@
             <legend>Server</legend>
             <label class="field">
               <span class="field-label">Confluence URL</span>
-              <input
-                type="url"
-                id="url"
-                placeholder="https://wiki.example.com"
-                spellcheck="false"
-                autocapitalize="off"
-                required
-              />
+              <div class="input-wrap">
+                <input
+                  type="url"
+                  id="url"
+                  placeholder="https://confluence.example.com"
+                  spellcheck="false"
+                  autocapitalize="off"
+                  required
+                />
+                <span class="url-badge" id="url-badge" data-state="empty"></span>
+              </div>
               <span class="field-hint">The full address you use in a browser.</span>
             </label>
           </fieldset>
@@ -117,7 +120,10 @@
 
             <div id="auth-token" class="seg-panel active" role="tabpanel">
               <label class="field">
-                <span class="field-label">Personal access token</span>
+                <span class="field-label field-label--with-action">
+                  Personal access token
+                  <a id="pat-link" class="field-link" href="#" aria-disabled="true">Get your token →</a>
+                </span>
                 <input type="password" id="token" autocomplete="off" spellcheck="false" />
                 <span class="field-hint">
                   Find it in Confluence under <kbd>Profile → Personal Access Tokens</kbd>.
@@ -196,6 +202,27 @@
             </button>
           </div>
         </form>
+
+        <section id="youre-set" class="youre-set" hidden>
+          <h2 class="youre-set-title">You're set.</h2>
+          <p class="youre-set-subtitle">Three steps left:</p>
+          <ol class="youre-set-steps">
+            <li>Fully quit Claude Desktop from the system tray icon.</li>
+            <li>Reopen Claude Desktop.</li>
+            <li>
+              Try asking Claude:
+              <ul class="youre-set-examples">
+                <li><code>Find pages about onboarding</code></li>
+                <li><code>Look up this page for me: &lt;paste a Confluence URL&gt;</code></li>
+                <li><code>List the Confluence spaces I can access</code></li>
+              </ul>
+            </li>
+          </ol>
+          <button type="button" id="btn-to-monitor" class="btn btn-primary">
+            <span class="btn-label">Continue to Monitor</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </section>
       </section>
 
       <!-- ═══════════ MONITOR VIEW ═══════════ -->
@@ -214,6 +241,10 @@
               <span class="monitor-card-status" id="status-text">checking…</span>
               <span class="monitor-card-meta" id="status-meta"></span>
             </div>
+            <button type="button" id="btn-test-live" class="btn btn-secondary btn-inline">
+              <span class="btn-label">Test live</span>
+              <span class="btn-arrow">→</span>
+            </button>
           </div>
 
           <dl class="monitor-details" id="monitor-details">
@@ -232,6 +263,45 @@
           </dl>
         </div>
 
+        <!-- Today tile -->
+        <div class="mini-card">
+          <div class="mini-card-label">Today</div>
+          <div class="mini-card-grid">
+            <div><div class="mini-card-num" id="today-calls">0</div><div class="mini-card-sub">tool calls</div></div>
+            <div><div class="mini-card-num" id="today-tokens">0</div><div class="mini-card-sub">tokens</div></div>
+            <div><div class="mini-card-num error" id="today-errors">0</div><div class="mini-card-sub">errors</div></div>
+          </div>
+        </div>
+
+        <!-- Token usage chart -->
+        <div class="mini-card">
+          <div class="mini-card-head">
+            <span class="mini-card-label">Token usage · last 7 days</span>
+            <span class="mini-card-total" id="tokens-total">0</span>
+          </div>
+          <svg id="chart-tokens" viewBox="0 0 300 90" preserveAspectRatio="none"></svg>
+          <div class="chart-axis" id="chart-axis"></div>
+          <div class="mini-card-note">Confluence content returned to Claude, estimated from character count (chars ÷ 4).</div>
+        </div>
+
+        <!-- Recent errors drawer -->
+        <details class="mini-card" id="errors-drawer">
+          <summary><span id="errors-summary">Recent errors (0)</span></summary>
+          <ul id="errors-list" class="errors-list"></ul>
+        </details>
+
+        <!-- Analyzer sidebar -->
+        <div class="mini-card" id="analyzer-card">
+          <div class="mini-card-head">
+            <span class="mini-card-label">For you this week</span>
+            <button type="button" id="btn-copy-diag" class="ghost">Copy diagnostics for Claude</button>
+          </div>
+          <ul id="analyzer-list" class="analyzer-list"></ul>
+          <div class="mini-card-note" id="analyzer-empty" hidden>
+            Not enough data yet — tips appear after a few tool calls.
+          </div>
+        </div>
+
         <div id="monitor-status" class="status" aria-live="polite"></div>
 
         <div class="monitor-actions">
@@ -243,6 +313,8 @@
             <span class="btn-label">Stop process</span>
           </button>
         </div>
+
+        <a class="log-link" id="open-claude-log">Open Claude Desktop log →</a>
 
         <div class="monitor-danger">
           <div class="danger-text">

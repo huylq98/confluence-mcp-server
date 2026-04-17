@@ -167,33 +167,90 @@ body {
   max-width: 42ch;
 }
 
-/* Progress strip */
+/* Progress indicator — connected dots */
 .progress {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  grid-template-columns: repeat(3, 1fr);
+  padding: 20px 18px 16px;
+  position: relative;
 }
 
 .step {
   position: relative;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 9px 0 9px 12px;
-  border-right: 1px solid var(--line);
-  overflow: hidden;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
 }
 
-.step:first-child { padding-left: 2px; }
-.step:last-child  { border-right: none; }
+/* Connecting line segment LEFT of every step except the first.
+   It runs from the center of the previous step's dot to the center of this
+   step's dot, passing behind both. Painted grey by default, accent when the
+   step it leads to is active or done. */
+.step:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  left: calc(-50% + 14px);
+  right: calc(50% + 14px);
+  top: 13px;
+  height: 2px;
+  background: var(--line);
+  transition: background 0.45s var(--step-ease);
+  z-index: 0;
+}
 
+.step[data-state="active"]:not(:first-child)::before,
+.step[data-state="done"]:not(:first-child)::before {
+  background: var(--accent);
+}
+
+/* The dot itself — circle around the step number. */
 .step .num {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
   color: var(--ink-mute);
-  letter-spacing: 0.05em;
-  transition: color 0.3s var(--step-ease);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  transition: color 0.3s var(--step-ease),
+              border-color 0.3s var(--step-ease),
+              background 0.3s var(--step-ease),
+              box-shadow 0.3s var(--step-ease);
+}
+
+/* Active: ring of accent color. */
+.step[data-state="active"] .num {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Done: solid accent fill, digit hidden, checkmark shown via ::before. */
+.step[data-state="done"] .num {
+  color: transparent;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.step[data-state="done"] .num::before {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
 }
 
 .step .label {
@@ -206,30 +263,8 @@ body {
   transition: color 0.3s var(--step-ease);
 }
 
-.step[data-state="active"] .num,
-.step[data-state="active"] .label { color: var(--ink); }
-
-.step[data-state="active"]::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 -1px 0;
-  height: 2px;
-  background: var(--accent);
-  transform-origin: left;
-  animation: stepIn 0.55s var(--step-ease);
-}
-
-.step[data-state="done"] .num { color: var(--good); }
-.step[data-state="done"] .num::before {
-  content: "✓";
-  margin-right: 4px;
-  font-family: var(--sans);
-}
-
-@keyframes stepIn {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
-}
+.step[data-state="active"] .label,
+.step[data-state="done"] .label { color: var(--ink); }
 
 /* Groups / fieldsets */
 .group {
@@ -805,3 +840,118 @@ button:focus-visible {
 .shell::-webkit-scrollbar-track   { background: transparent; }
 .shell::-webkit-scrollbar-thumb   { background: var(--line-strong); border-radius: 3px; }
 .shell::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
+
+/* ── URL validation badge ───────────────────────────────────────────── */
+.input-wrap { position: relative; }
+.url-badge {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-family: "IBM Plex Mono", monospace;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.url-badge[data-state="ok"]    { opacity: 1; background: #dcfce7; color: #14532d; }
+.url-badge[data-state="warn"]  { opacity: 1; background: #fef3c7; color: #78350f; }
+.url-badge[data-state="bad"]   { opacity: 1; background: #fee2e2; color: #7f1d1d; }
+/* ── PAT deep-link ──────────────────────────────────────────────────── */
+.field-label--with-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.field-link {
+  font-size: 11px;
+  color: var(--accent, #555);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.field-link[aria-disabled="true"] {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ── "You're set." post-save panel ─────────────────────────────────── */
+.youre-set {
+  padding: 24px 4px 12px;
+  animation: fadein .3s ease;
+}
+.youre-set-title {
+  font-family: "Fraunces", serif;
+  font-size: 28px;
+  margin: 0 0 6px;
+}
+.youre-set-subtitle { opacity: 0.7; margin: 0 0 14px; }
+.youre-set-steps { line-height: 1.7; }
+.youre-set-examples {
+  margin-top: 6px;
+  padding-left: 18px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.youre-set-examples li { margin: 3px 0; }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ── Monitor mini-cards (Today / Token chart / Errors drawer) ──────── */
+.mini-card {
+  background: rgba(30, 41, 59, 0.13);
+  border: 1px solid rgba(51, 51, 68, 0.4);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.mini-card-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px;
+}
+.mini-card-label {
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55;
+}
+.mini-card-total { font-size: 11px; opacity: 0.55; }
+.mini-card-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 13px;
+}
+.mini-card-num { font-size: 18px; font-weight: 600; }
+.mini-card-num.error { color: #ef4444; }
+.mini-card-sub { opacity: 0.6; font-size: 11px; }
+.mini-card-note { font-size: 10px; opacity: 0.5; margin-top: 8px; }
+
+#chart-tokens { width: 100%; height: 90px; display: block; }
+.chart-axis {
+  display: flex; justify-content: space-between;
+  font-size: 10px; opacity: 0.55; padding: 0 6px; margin-top: 4px;
+}
+
+.errors-list { list-style: none; padding: 0; margin: 8px 0 0; font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+.errors-list li { padding: 3px 0; opacity: 0.85; }
+
+/* ── Monitor interactive elements ──────────────────────────────────── */
+.btn-inline {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
+.analyzer-list { list-style: none; padding: 0; margin: 8px 0 0; font-size: 12.5px; }
+.analyzer-list li {
+  padding: 8px 0;
+  border-top: 1px solid rgba(51, 51, 68, 0.3);
+}
+.analyzer-list li:first-child { border-top: none; }
+.analyzer-list .tip-title { font-weight: 500; }
+.analyzer-list .tip-detail { opacity: 0.7; font-size: 11.5px; margin-top: 2px; }
+
+.log-link {
+  font-size: 11px;
+  opacity: 0.6;
+  cursor: pointer;
+  text-decoration: underline;
+  display: inline-block;
+  margin: 8px 0;
+}

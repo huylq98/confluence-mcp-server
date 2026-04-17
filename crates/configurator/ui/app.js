@@ -33,6 +33,12 @@ function setStatus(kind, msg) {
 /* ── View switching ─────────────────────────────────────────────────── */
 function switchView(name) {
   if (name === currentView) return;
+  // When navigating back to Setup, make sure the form is visible and the
+  // "You're set." panel is hidden (covers the Edit-credentials round-trip).
+  if (name === "setup") {
+    $("youre-set").hidden = true;
+    $("wizard").hidden = false;
+  }
   $$(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
   $$(".view-tab").forEach((t) => {
     const on = t.dataset.view === name;
@@ -45,6 +51,8 @@ function switchView(name) {
 
   if (name === "monitor") {
     startStatusPolling();
+    refreshMonitorStats();
+    refreshAnalyzer();
   } else {
     stopStatusPolling();
   }
@@ -88,11 +96,59 @@ $$(".seg-btn").forEach((btn) => {
   });
 });
 
+/* ── URL validation badge + PAT deep-link ────────────────────────────── */
+const urlInput = $("url");
+const urlBadge = $("url-badge");
+const patLink = $("pat-link");
+
+function updateUrlBadge() {
+  const v = urlInput.value.trim();
+  if (!v) { urlBadge.dataset.state = "empty"; urlBadge.textContent = ""; return; }
+  try {
+    const u = new URL(v);
+    if (u.protocol === "https:") { urlBadge.dataset.state = "ok";   urlBadge.textContent = "HTTPS ✓"; }
+    else if (u.protocol === "http:") { urlBadge.dataset.state = "warn"; urlBadge.textContent = "HTTP ⚠"; }
+    else { urlBadge.dataset.state = "bad"; urlBadge.textContent = "✗"; }
+  } catch {
+    urlBadge.dataset.state = "bad";
+    urlBadge.textContent = "✗";
+  }
+}
+
+function updatePatLink() {
+  const v = urlInput.value.trim();
+  try {
+    const u = new URL(v);
+    const base = `${u.protocol}//${u.host}`;
+    patLink.href = `${base}/plugins/personalaccesstokens/usertokens.action`;
+    patLink.setAttribute("aria-disabled", "false");
+  } catch {
+    patLink.href = "#";
+    patLink.setAttribute("aria-disabled", "true");
+  }
+}
+
+urlInput.addEventListener("input", () => { updateUrlBadge(); updatePatLink(); });
+updateUrlBadge();
+updatePatLink();
+
+$("pat-link").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  if ($("pat-link").getAttribute("aria-disabled") === "true") return;
+  const href = $("pat-link").getAttribute("href");
+  if (!href || href === "#") return;
+  invoke("open_external_url", { url: href }).catch((e) => {
+    setStatus("err", "Failed to open PAT settings: " + e);
+  });
+});
+
 /* ── Initial load ───────────────────────────────────────────────────── */
 async function init() {
   try {
     const cfg = await invoke("load_existing_config");
     $("url").value = cfg.url || "";
+    updateUrlBadge();
+    updatePatLink();
     $("username").value = cfg.username || "";
     $("password").value = cfg.password || "";
     $("token").value = cfg.token || "";
@@ -214,12 +270,14 @@ $("btn-save").addEventListener("click", async () => {
     if (result.success) {
       state = "idle";
       setStep(3, "done");
-      // Repaint the monitor view with the new config and switch to it.
+      // Prepare the monitor view in the background, but let the user
+      // read the "You're set." checklist before advancing.
       const latest = await invoke("load_existing_config");
       enableMonitorTab(true);
       paintMonitorDetails(latest);
-      switchView("monitor");
       setStatus("ok", result.message);
+      $("wizard").hidden = true;
+      $("youre-set").hidden = false;
     } else {
       state = "tested";
       setStatus("err", result.message);
@@ -232,6 +290,12 @@ $("btn-save").addEventListener("click", async () => {
     $("btn-save").disabled = false;
     $("btn-test").disabled = false;
   }
+});
+
+$("btn-to-monitor").addEventListener("click", () => {
+  $("youre-set").hidden = true;
+  $("wizard").hidden = false;
+  switchView("monitor");
 });
 
 /* ── Monitor actions ───────────────────────────────────────────────── */
@@ -313,13 +377,101 @@ async function refreshStatus() {
 function startStatusPolling() {
   if (statusTimer) return;
   refreshStatus();
-  statusTimer = setInterval(refreshStatus, 3000);
+  refreshMonitorStats();
+  refreshAnalyzer();
+  statusTimer = setInterval(() => {
+    refreshStatus();
+    tickCounter += 1;
+    if (tickCounter % 2 === 0) {
+      refreshMonitorStats();
+      refreshAnalyzer();
+    }
+  }, 3000);
 }
 
 function stopStatusPolling() {
   if (!statusTimer) return;
   clearInterval(statusTimer);
   statusTimer = null;
+}
+
+/* ── Monitor: stats rendering ───────────────────────────────────────── */
+let tickCounter = 0;
+
+async function refreshMonitorStats() {
+  let s;
+  try {
+    s = await invoke("get_stats");
+  } catch (_) {
+    return; // not configured yet, silent no-op
+  }
+  $("today-calls").textContent = s.todayCalls;
+  $("today-tokens").textContent = formatTokens(s.todayTokens);
+  $("today-errors").textContent = s.todayErrors;
+
+  renderTokenChart(s.sevenDayTokens);
+
+  const errList = $("errors-list");
+  errList.innerHTML = "";
+  for (const e of s.recentErrors) {
+    const li = document.createElement("li");
+    const date = new Date(e.ts * 1000);
+    const hhmm = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    li.textContent = `${hhmm} · ${e.tool} · ${e.status} · ${e.message}`;
+    errList.appendChild(li);
+  }
+  $("errors-summary").textContent = `Recent errors (${s.recentErrors.length})`;
+}
+
+function formatTokens(n) {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return (n / 1000).toFixed(n < 10000 ? 1 : 0) + "k";
+  return (n / 1_000_000).toFixed(1) + "M";
+}
+
+function renderTokenChart(days) {
+  const svg = $("chart-tokens");
+  const axis = $("chart-axis");
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  axis.innerHTML = "";
+
+  const max = Math.max(1, ...days.map((d) => d.tokens));
+  const total = days.reduce((a, d) => a + d.tokens, 0);
+  $("tokens-total").textContent = formatTokens(total);
+
+  const W = 300, H = 90, pad = 12;
+  const slot = (W - 2 * pad) / days.length;
+  const barW = Math.max(2, slot * 0.7);
+  const NS = "http://www.w3.org/2000/svg";
+
+  days.forEach((d, i) => {
+    const h = (d.tokens / max) * (H - 20);
+    const x = pad + i * slot + (slot - barW) / 2;
+    const y = H - 12 - h;
+    const rect = document.createElementNS(NS, "rect");
+    rect.setAttribute("x", x);
+    rect.setAttribute("y", y);
+    rect.setAttribute("width", barW);
+    rect.setAttribute("height", Math.max(1, h));
+    rect.setAttribute("rx", 2);
+    rect.setAttribute("fill", "#60a5fa");
+    if (d.tokens === 0) rect.setAttribute("opacity", "0.2");
+    svg.appendChild(rect);
+
+    const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dayLabel = document.createElement("span");
+    const dt = new Date(d.date + "T00:00:00");
+    dayLabel.textContent = dow[dt.getDay()];
+    axis.appendChild(dayLabel);
+  });
+
+  // baseline
+  const line = document.createElementNS(NS, "line");
+  line.setAttribute("x1", 0); line.setAttribute("x2", W);
+  line.setAttribute("y1", H - 12); line.setAttribute("y2", H - 12);
+  line.setAttribute("stroke", "rgba(100,100,120,0.4)");
+  line.setAttribute("stroke-width", "1");
+  svg.appendChild(line);
 }
 
 /* ── Invalidate verified state when inputs change ──────────────────── */
@@ -352,3 +504,69 @@ $("wizard").addEventListener("keydown", (e) => {
 });
 
 init();
+
+/* ── Monitor: Test live ─────────────────────────────────────────────── */
+$("btn-test-live").addEventListener("click", async () => {
+  const btn = $("btn-test-live");
+  btn.disabled = true;
+  setStatus("info", "Testing live connection…");
+  try {
+    const r = await invoke("test_live_connection");
+    if (r.success) setStatus("ok", r.message);
+    else setStatus("err", r.message);
+  } catch (e) {
+    setStatus("err", String(e));
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ── Monitor: analyzer sidebar ──────────────────────────────────────── */
+async function refreshAnalyzer() {
+  let tips = [];
+  try {
+    tips = await invoke("get_recommendations");
+  } catch (_) {
+    return;
+  }
+  const list = $("analyzer-list");
+  const empty = $("analyzer-empty");
+  list.innerHTML = "";
+  if (tips.length === 0) {
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  for (const t of tips) {
+    const li = document.createElement("li");
+    const title = document.createElement("div");
+    title.className = "tip-title";
+    title.textContent = t.title;
+    const detail = document.createElement("div");
+    detail.className = "tip-detail";
+    detail.textContent = t.detail;
+    li.appendChild(title);
+    li.appendChild(detail);
+    list.appendChild(li);
+  }
+}
+
+/* ── Monitor: Copy diagnostics ──────────────────────────────────────── */
+$("btn-copy-diag").addEventListener("click", async () => {
+  try {
+    const msg = await invoke("copy_diagnostics");
+    setStatus("ok", msg);
+  } catch (e) {
+    setStatus("err", String(e));
+  }
+});
+
+/* ── Monitor: Open Claude log ───────────────────────────────────────── */
+$("open-claude-log").addEventListener("click", async (ev) => {
+  ev.preventDefault();
+  try {
+    await invoke("open_claude_log");
+  } catch (e) {
+    setStatus("err", String(e));
+  }
+});
