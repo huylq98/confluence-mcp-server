@@ -381,12 +381,8 @@ pub struct LiveTestResult {
     pub space_count: usize,
 }
 
-#[tauri::command]
-pub async fn test_live_connection() -> Result<LiveTestResult, String> {
-    let existing = read_config(&default_config_path()).map_err(|e| e.to_string())?;
-    let entry = existing.confluence.ok_or_else(|| "Not configured yet.".to_string())?;
-
-    let cfg = Config {
+fn config_from_entry(entry: ConfluenceEntry, timeout: Duration) -> Config {
+    Config {
         confluence_url: entry.url.trim_end_matches('/').into(),
         username: entry.username,
         password: entry.password,
@@ -394,12 +390,20 @@ pub async fn test_live_connection() -> Result<LiveTestResult, String> {
         ssl_verify: entry.ssl_verify,
         ca_bundle: None,
         proxy_url: entry.proxy_url,
-        timeout: Duration::from_secs(10),
+        timeout,
         rate_limit: 5,
         max_content_length: 50_000,
         default_search_limit: 10,
         log_level: "WARN".into(),
-    };
+    }
+}
+
+#[tauri::command]
+pub async fn test_live_connection() -> Result<LiveTestResult, String> {
+    let existing = read_config(&default_config_path()).map_err(|e| e.to_string())?;
+    let entry = existing.confluence.ok_or_else(|| "Not configured yet.".to_string())?;
+
+    let cfg = config_from_entry(entry, Duration::from_secs(10));
 
     let client = Client::new(cfg).map_err(|e| e.to_string())?;
     let started = std::time::Instant::now();
@@ -439,7 +443,11 @@ pub async fn copy_diagnostics() -> Result<String, String> {
     for r in history.iter().rev().take(100).rev() {
         md.push_str(&format!(
             "| {} | {} | {} | {} | {} |\n",
-            r.ts, r.tool, r.args, r.tokens_est, r.status,
+            r.ts,
+            esc_md(&r.tool),
+            esc_md(&r.args.to_string()),
+            r.tokens_est,
+            esc_md(&r.status),
         ));
     }
     md.push_str("\n## Recent errors\n\n");
@@ -489,6 +497,11 @@ fn url_host(s: &str) -> Option<String> {
     url::Url::parse(s.trim()).ok().and_then(|u| u.host_str().map(String::from))
 }
 
+/// Escape pipe characters so they don't break markdown table column layout.
+fn esc_md(s: &str) -> String {
+    s.replace('|', "\\|")
+}
+
 /// Returns true for RFC1918 private IPs, loopback, link-local, and plain
 /// hostnames without a dot (e.g. `wiki`, `intranet`) — addresses that
 /// external-facing HTTP proxies typically can't or won't route to.
@@ -534,5 +547,12 @@ mod tests {
     fn fqdn_is_not_local() {
         assert!(!is_private_or_local_host("wiki.example.com"));
         assert!(!is_private_or_local_host("confluence.corp.example"));
+    }
+
+    #[test]
+    fn esc_md_escapes_pipe() {
+        assert_eq!(esc_md("a|b"), "a\\|b");
+        assert_eq!(esc_md("no pipes"), "no pipes");
+        assert_eq!(esc_md("|||"), "\\|\\|\\|");
     }
 }
