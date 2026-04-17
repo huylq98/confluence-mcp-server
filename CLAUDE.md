@@ -21,9 +21,11 @@ Implications:
 # Run tests (all crates)
 cargo test --workspace -- --test-threads=1
 
-# Build release distribution (Windows)
+# Build release distribution (Windows, PowerShell)
 powershell -ExecutionPolicy Bypass -File scripts/build.ps1
-# Output: dist/ConfluenceConnect.exe (~2.8 MB)
+# From git-bash/MSYS where cargo is not on PATH, use the wrapper instead:
+./scripts/package.sh
+# Output: dist/ConfluenceConnect.exe (~7.6 MB unsigned, no UPX)
 
 # Run the wizard in debug mode
 cargo run -p configurator

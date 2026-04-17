@@ -76,11 +76,22 @@ impl Client {
                 continue;
             }
 
-            let message = response.text().await.unwrap_or_default();
-            return Err(ConfluenceError::Http {
-                status: status.as_u16(),
-                message: if message.is_empty() { status.canonical_reason().unwrap_or("").into() } else { message },
-            });
+            let seraph = response.headers().get("X-Seraph-LoginReason")
+                .and_then(|v| v.to_str().ok()).map(String::from);
+            let auser = response.headers().get("X-AUSERNAME")
+                .and_then(|v| v.to_str().ok()).map(String::from);
+            let body = response.text().await.unwrap_or_default();
+            let mut parts = Vec::new();
+            if let Some(s) = seraph { parts.push(format!("X-Seraph-LoginReason={s}")); }
+            if let Some(a) = auser { parts.push(format!("X-AUSERNAME={a}")); }
+            let prefix = if parts.is_empty() { String::new() } else { format!("[{}] ", parts.join(", ")) };
+            let body_snippet: String = body.chars().take(300).collect();
+            let message = if body_snippet.trim().is_empty() {
+                format!("{prefix}{}", status.canonical_reason().unwrap_or(""))
+            } else {
+                format!("{prefix}{body_snippet}")
+            };
+            return Err(ConfluenceError::Http { status: status.as_u16(), message });
         }
     }
 

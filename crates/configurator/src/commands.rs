@@ -101,11 +101,15 @@ pub async fn test_connection(args: TestConnectionArgs) -> Result<TestConnectionR
             Ok(TestConnectionResult { success: true, message: format!("Connected! Found {count} space(s).") })
         }
         Err(e) => {
+            let detail = e.to_string();
             let msg = match e.status_code() {
-                401 => "Authentication failed. Please check your username/password or token.".into(),
-                403 => "Permission denied. Your account may not have Confluence access.".into(),
-                0 => format!("Cannot reach the server. Please check:\n- The URL is correct\n- You are connected to VPN (if required)\n- The server is running\n\nDetails: {e}"),
-                code => format!("Error (HTTP {code}): {e}"),
+                401 => format!("Authentication failed. Check your username/password or token.\n\n{detail}"),
+                403 if detail.contains("CAPTCHA_CHALLENGE") => format!(
+                    "Confluence is requiring CAPTCHA for your account. Open Confluence in a browser, sign in, solve the CAPTCHA, then retry here.\n\n{detail}"
+                ),
+                403 => format!("Confluence refused the request (403). This is usually CAPTCHA, account lockout, or a WAF rule.\n\n{detail}"),
+                0 => format!("Cannot reach the server. Please check:\n- The URL is correct\n- You are connected to VPN (if required)\n- The server is running\n\n{detail}"),
+                code => format!("Error (HTTP {code}): {detail}"),
             };
             Ok(TestConnectionResult { success: false, message: msg })
         }
