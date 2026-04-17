@@ -10,7 +10,7 @@ name = "configurator"
 path = "src/lib.rs"
 
 [[bin]]
-name = "ConfluenceMCPSetup"
+name = "ConfluenceConnect"
 path = "src/main.rs"
 
 [build-dependencies]

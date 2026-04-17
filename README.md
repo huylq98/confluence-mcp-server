@@ -1,10 +1,10 @@
-# Confluence MCP Server
+# Confluence Connect
 
-An MCP (Model Context Protocol) server that connects Claude Desktop to a self-hosted **Confluence Server / Data Center** instance, plus a Tauri 2 desktop wizard for setup and monitoring.
+A small desktop app (plus a Model Context Protocol server) that connects Claude Desktop to a self-hosted **Confluence Server / Data Center** instance. Setup takes about two minutes; the wizard monitors the server and lets you stop or remove it at any time.
 
 ## Install
 
-1. Download `ConfluenceMCPSetup.exe` from the [latest release](../../releases/latest) (~2.8 MB).
+1. Download `ConfluenceConnect.exe` from the [latest release](../../releases/latest) (~2.8 MB).
 2. Double-click — the wizard opens on the **Setup** tab.
 3. Enter your Confluence URL and a Personal Access Token (or username/password).
 4. Click **Test connection**, then **Save & finish**.
@@ -14,7 +14,7 @@ No Python, no terminal, no config files to edit. The exe bundles everything need
 
 ## Monitor & uninstall
 
-Re-run `ConfluenceMCPSetup.exe` any time — the **Monitor** tab opens by default when you already have a configuration. It shows:
+Re-run `ConfluenceConnect.exe` any time — the **Monitor** tab opens by default when you already have a configuration. It shows:
 
 - Live **running / not running** status (the MCP server is a child process that Claude Desktop spawns on startup — if Claude Desktop isn't open, the server isn't running either).
 - PID and memory usage, refreshed every 3 s.
@@ -46,7 +46,7 @@ Requires Rust 1.75+ and PowerShell (Windows).
 git clone <this repo>
 cd confluence-mcp-server
 powershell -ExecutionPolicy Bypass -File scripts/build.ps1
-# Output: dist/ConfluenceMCPSetup.exe
+# Output: dist/ConfluenceConnect.exe
 ```
 
 ---

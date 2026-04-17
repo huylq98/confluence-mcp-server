@@ -12,16 +12,16 @@ fn install_dir_candidates() -> Vec<PathBuf> {
     let mut v = Vec::new();
     if cfg!(windows) {
         if let Some(d) = std::env::var_os("LOCALAPPDATA") {
-            v.push(PathBuf::from(d).join("ConfluenceMCP"));
+            v.push(PathBuf::from(d).join("ConfluenceConnect"));
         }
         if let Some(d) = std::env::var_os("USERPROFILE") {
-            v.push(PathBuf::from(d).join("ConfluenceMCP"));
+            v.push(PathBuf::from(d).join("ConfluenceConnect"));
         }
     } else if let Some(d) = std::env::var_os("HOME") {
-        v.push(PathBuf::from(d).join(".local").join("share").join("ConfluenceMCP"));
+        v.push(PathBuf::from(d).join(".local").join("share").join("ConfluenceConnect"));
     }
     if v.is_empty() {
-        v.push(PathBuf::from("ConfluenceMCP"));
+        v.push(PathBuf::from("ConfluenceConnect"));
     }
     v
 }

@@ -20,7 +20,7 @@ fn default_install_dir_is_under_known_variable() {
     let p = default_install_dir();
     // On Windows, path is under LOCALAPPDATA or USERPROFILE; on Linux/Mac under home.
     let s = p.to_string_lossy();
-    assert!(s.ends_with("ConfluenceMCP"), "unexpected path: {s}");
+    assert!(s.ends_with("ConfluenceConnect"), "unexpected path: {s}");
 }
 
 #[test]

@@ -49,7 +49,7 @@ fn show_missing_webview2_message() {
          https://developer.microsoft.com/en-us/microsoft-edge/webview2/\n\n\
          Install the 'Evergreen Bootstrapper' and try again."
     ).encode_wide().chain(Some(0)).collect();
-    let caption: Vec<u16> = OsStr::new("Confluence MCP Setup — Missing Component")
+    let caption: Vec<u16> = OsStr::new("Confluence Connect — Missing Component")
         .encode_wide().chain(Some(0)).collect();
     unsafe {
         MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), MB_ICONWARNING);

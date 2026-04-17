@@ -65,7 +65,9 @@
       "Bash(taskkill //F //IM ConfluenceMCPSetup.exe)",
       "Bash(cargo run *)",
       "Bash(powershell -ExecutionPolicy Bypass -File scripts/build.ps1)",
-      "Bash(./dist/ConfluenceMCPSetup.exe)"
+      "Bash(./dist/ConfluenceMCPSetup.exe)",
+      "Bash(gh release create v0.1.0 dist/ConfluenceMCPSetup.exe --title 'v0.1.0 — Rust rewrite \\(2.84 MB\\)' --notes ' *)",
+      "Bash(taskkill //F //IM ConfluenceMCPSetup.exe //IM ConfluenceConnect.exe)"
     ]
   }
 }

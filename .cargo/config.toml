@@ -1,0 +1,7 @@
+# Statically link the Microsoft C runtime so the shipped binaries do not
+# depend on vcruntime140.dll / msvcp140.dll being installed on the target
+# machine. Slightly larger binary, but fully self-contained — important
+# when shipping to end users who may not have the VC++ Redistributable.
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

@@ -8,7 +8,7 @@ An MCP (Model Context Protocol) server that connects Claude to **Confluence Serv
 
 ## Distribution Constraint (CRITICAL)
 
-The shipped distribution **must run standalone** on a tester/end-user machine that has **nothing installed** — no Python, no Rust, no Node, no runtimes, no dev tools. The single `ConfluenceMCPSetup.exe` embeds everything it needs.
+The shipped distribution **must run standalone** on a tester/end-user machine that has **nothing installed** — no Python, no Rust, no Node, no runtimes, no dev tools. The single `ConfluenceConnect.exe` embeds everything it needs.
 
 Implications:
 - The MCP server binary is embedded inside the wizard via `include_bytes!` and extracted on Save.
@@ -23,7 +23,7 @@ cargo test --workspace -- --test-threads=1
 
 # Build release distribution (Windows)
 powershell -ExecutionPolicy Bypass -File scripts/build.ps1
-# Output: dist/ConfluenceMCPSetup.exe (~2.8 MB)
+# Output: dist/ConfluenceConnect.exe (~2.8 MB)
 
 # Run the wizard in debug mode
 cargo run -p configurator
@@ -38,7 +38,7 @@ Cargo workspace at repo root with three crates:
 
 - **`crates/confluence-core`** — shared library: HTTP client with rate limiting + retry/backoff, `Config` loaded from env vars, URL parser (supports 8 formats), HTML strip/truncate helpers, error types.
 - **`crates/server`** — MCP stdio server binary (`confluence-mcp-server.exe`) built on the official `rmcp` crate. Registers 7 Confluence tools: `list_spaces`, `search_confluence`, `get_page`, `get_page_by_title`, `get_page_by_url`, `get_comments`, `get_attachments`. Launched by Claude Desktop on every boot.
-- **`crates/configurator`** — Tauri 2 desktop wizard (`ConfluenceMCPSetup.exe`). Embeds the server binary via `include_bytes!`, extracts it to `%LOCALAPPDATA%\ConfluenceMCP\` (or user-chosen path) on Save, and writes the resulting path into Claude Desktop's `claude_desktop_config.json`.
+- **`crates/configurator`** — Tauri 2 desktop wizard (`ConfluenceConnect.exe`). Embeds the server binary via `include_bytes!`, extracts it to `%LOCALAPPDATA%\ConfluenceConnect\` (or user-chosen path) on Save, and writes the resulting path into Claude Desktop's `claude_desktop_config.json`.
 
 `scripts/build.ps1` orchestrates the ordered build: server release → UPX → copy into configurator resources → configurator release → UPX → final artifact in `dist/`.
 

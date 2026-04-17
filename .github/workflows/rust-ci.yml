@@ -51,7 +51,7 @@ jobs:
       - name: Enforce size gates
         run: |
           $server = (Get-Item "target/release/confluence-mcp-server.exe").Length
-          $wizard = (Get-Item "dist/ConfluenceMCPSetup.exe").Length
+          $wizard = (Get-Item "dist/ConfluenceConnect.exe").Length
           Write-Host ("server: {0:N0} bytes ({1:N2} MB)" -f $server, ($server / 1MB))
           Write-Host ("wizard: {0:N0} bytes ({1:N2} MB)" -f $wizard, ($wizard / 1MB))
           if ($server -gt 6MB) { Write-Error "server exceeds 6 MB ceiling"; exit 1 }
@@ -61,5 +61,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ConfluenceMCPSetup
-          path: dist/ConfluenceMCPSetup.exe
+          name: ConfluenceConnect
+          path: dist/ConfluenceConnect.exe

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ConfluenceMCPSetup",
-  "version": "0.1.0",
-  "identifier": "com.confluence-mcp.setup",
+  "productName": "ConfluenceConnect",
+  "version": "0.1.1",
+  "identifier": "com.confluence-connect",
   "build": {
     "frontendDist": "ui"
   },
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Confluence MCP Setup",
+        "title": "Confluence Connect",
         "width": 600,
         "height": 720,
         "resizable": false
