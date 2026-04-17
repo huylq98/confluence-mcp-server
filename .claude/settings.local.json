@@ -42,7 +42,30 @@
       "Bash(rm -rf build dist *.spec)",
       "Bash(py build.py)",
       "Bash(mv tools/upx-4.2.4-win64 tools/_upx-disabled)",
-      "Bash(gh api *)"
+      "Bash(gh api *)",
+      "Bash(ls -d .worktrees)",
+      "Bash(ls -d worktrees)",
+      "Bash(grep -i \"worktree.*director\" CLAUDE.md)",
+      "Bash(cargo metadata *)",
+      "Bash(where cargo *)",
+      "Bash(cargo --version)",
+      "Bash(rustc --version)",
+      "Bash(where link.exe)",
+      "Read(//c/tmp/**)",
+      "Bash(curl -sSfLo rustup-init.exe https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe)",
+      "Bash(/tmp/rustup-init.exe -y --default-host x86_64-pc-windows-msvc --default-toolchain stable --profile default --no-modify-path)",
+      "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
+      "Bash(cargo test *)",
+      "Bash(cargo build *)",
+      "Bash(cargo doc *)",
+      "Read(//c/Users/Admin/.cargo/registry/src/**)",
+      "Bash(cargo tree *)",
+      "Bash(where node *)",
+      "Bash(node --check C:/Users/Admin/IdeaProjects/confluence-mcp-server/crates/configurator/ui/app.js)",
+      "Bash(taskkill //F //IM ConfluenceMCPSetup.exe)",
+      "Bash(cargo run *)",
+      "Bash(powershell -ExecutionPolicy Bypass -File scripts/build.ps1)",
+      "Bash(./dist/ConfluenceMCPSetup.exe)"
     ]
   }
 }

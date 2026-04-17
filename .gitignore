@@ -18,6 +18,9 @@ dist/
 # ---- Worktrees ----
 .worktrees/
 
+# ---- Claude Code transient state ----
+.claude/scheduled_tasks.lock
+
 # ---- IDE ----
 .vscode/
 .idea/
