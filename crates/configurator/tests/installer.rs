@@ -29,3 +29,15 @@ fn resolve_install_dir_uses_override() {
     let got = resolve_install_dir(Some(d.path().to_string_lossy().to_string()));
     assert_eq!(got, d.path());
 }
+
+#[test]
+#[cfg(target_os = "macos")]
+fn default_install_dir_uses_library_application_support_on_mac() {
+    let p = default_install_dir();
+    let s = p.to_string_lossy();
+    assert!(
+        s.contains("Library/Application Support"),
+        "expected Library/Application Support in path: {s}"
+    );
+    assert!(s.ends_with("ConfluenceConnect"), "expected ConfluenceConnect suffix in: {s}");
+}
