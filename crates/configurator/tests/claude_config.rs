@@ -94,5 +94,5 @@ fn default_config_path_on_mac_uses_library_application_support() {
         s.contains("Library/Application Support/Claude"),
         "expected Library/Application Support/Claude in: {s}"
     );
-    assert!(s.ends_with("claude_desktop_config.json"));
+    assert!(s.ends_with("claude_desktop_config.json"), "expected claude_desktop_config.json suffix in: {s}");
 }
