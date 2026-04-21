@@ -2,22 +2,35 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+#[cfg(windows)]
 pub const SERVER_BINARY_NAME: &str = "confluence-mcp-server.exe";
+#[cfg(not(windows))]
+pub const SERVER_BINARY_NAME: &str = "confluence-mcp-server";
 
 /// The server binary embedded at compile time.
+#[cfg(windows)]
 const EMBEDDED_SERVER: &[u8] = include_bytes!("../resources/confluence-mcp-server.exe");
+#[cfg(not(windows))]
+const EMBEDDED_SERVER: &[u8] = include_bytes!("../resources/confluence-mcp-server");
 
 /// Ordered candidate paths for the default install dir.
 fn install_dir_candidates() -> Vec<PathBuf> {
     let mut v = Vec::new();
-    if cfg!(windows) {
+    #[cfg(windows)]
+    {
         if let Some(d) = std::env::var_os("LOCALAPPDATA") {
             v.push(PathBuf::from(d).join("ConfluenceConnect"));
         }
         if let Some(d) = std::env::var_os("USERPROFILE") {
             v.push(PathBuf::from(d).join("ConfluenceConnect"));
         }
-    } else if let Some(d) = std::env::var_os("HOME") {
+    }
+    #[cfg(target_os = "macos")]
+    if let Some(d) = std::env::var_os("HOME") {
+        v.push(PathBuf::from(d).join("Library").join("Application Support").join("ConfluenceConnect"));
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    if let Some(d) = std::env::var_os("HOME") {
         v.push(PathBuf::from(d).join(".local").join("share").join("ConfluenceConnect"));
     }
     if v.is_empty() {

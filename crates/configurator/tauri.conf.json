@@ -22,7 +22,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "icon": ["icons/icon.ico"]
+    "targets": ["nsis", "dmg"],
+    "icon": ["icons/icon.ico", "icons/icon.icns"],
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    }
   }
 }

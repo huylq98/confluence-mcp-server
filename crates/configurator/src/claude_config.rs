@@ -22,10 +22,18 @@ pub struct ExistingConfig {
 
 /// Default config path for the current platform.
 pub fn default_config_path() -> PathBuf {
-    if cfg!(windows) {
+    #[cfg(windows)]
+    {
         let appdata = std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
         appdata.join("Claude").join("claude_desktop_config.json")
-    } else {
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+        home.join("Library").join("Application Support").join("Claude").join("claude_desktop_config.json")
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
         let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
         home.join(".config").join("Claude").join("claude_desktop_config.json")
     }

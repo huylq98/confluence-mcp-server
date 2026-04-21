@@ -1,5 +1,4 @@
 use configurator::claude_config::{read_config, write_confluence_entry, remove_confluence_entry, ConfluenceEntry};
-use serde_json::json;
 use tempfile::TempDir;
 use std::fs;
 
@@ -84,4 +83,16 @@ fn remove_deletes_entry() {
     let parsed: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     assert!(parsed.pointer("/mcpServers/confluence").is_none());
     assert!(parsed.pointer("/mcpServers/other").is_some());
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn default_config_path_on_mac_uses_library_application_support() {
+    let p = configurator::claude_config::default_config_path();
+    let s = p.to_string_lossy();
+    assert!(
+        s.contains("Library/Application Support/Claude"),
+        "expected Library/Application Support/Claude in: {s}"
+    );
+    assert!(s.ends_with("claude_desktop_config.json"), "expected claude_desktop_config.json suffix in: {s}");
 }
