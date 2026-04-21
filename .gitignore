@@ -31,3 +31,4 @@ dist/
 .DS_Store
 Thumbs.db
 .superpowers/
+_site/
