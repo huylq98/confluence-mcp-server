@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build distribution
+        run: powershell -ExecutionPolicy Bypass -File scripts/build.ps1
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-dist
+          path: dist/ConfluenceConnect.exe
+
+  build-mac:
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli@^2
+
+      - name: Build server binary
+        run: cargo build --release -p server
+
+      - name: Copy server binary into configurator resources
+        run: |
+          mkdir -p crates/configurator/resources
+          cp target/release/confluence-mcp-server crates/configurator/resources/confluence-mcp-server
+
+      - name: Generate icon.icns
+        run: |
+          sips -s format png crates/configurator/icons/icon.ico --out /tmp/app_icon.png
+          mkdir /tmp/icon.iconset
+          for size in 16 32 128 256 512; do
+            sips -z $size $size /tmp/app_icon.png \
+              --out /tmp/icon.iconset/icon_${size}x${size}.png
+            sips -z $((size * 2)) $((size * 2)) /tmp/app_icon.png \
+              --out /tmp/icon.iconset/icon_${size}x${size}@2x.png
+          done
+          iconutil -c icns /tmp/icon.iconset -o crates/configurator/icons/icon.icns
+
+      - name: Build Mac distribution
+        run: |
+          cd crates/configurator
+          tauri build
+          mkdir -p ../../dist
+          find ../../target/release/bundle/dmg -name "*.dmg" -maxdepth 1 \
+            -exec cp {} ../../dist/ConfluenceConnect.dmg \;
+
+      - name: Upload Mac artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-dist
+          path: dist/ConfluenceConnect.dmg
+
+  publish:
+    needs: [build-windows, build-mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-dist
+          path: dist/windows
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mac-dist
+          path: dist/mac
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/windows/ConfluenceConnect.exe
+            dist/mac/ConfluenceConnect.dmg
+          generate_release_notes: true
