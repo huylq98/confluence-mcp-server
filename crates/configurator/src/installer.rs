@@ -7,11 +7,13 @@ pub const SERVER_BINARY_NAME: &str = "confluence-mcp-server.exe";
 #[cfg(not(windows))]
 pub const SERVER_BINARY_NAME: &str = "confluence-mcp-server";
 
+/// The server binary embedded at compile time.
 #[cfg(windows)]
 const EMBEDDED_SERVER: &[u8] = include_bytes!("../resources/confluence-mcp-server.exe");
 #[cfg(not(windows))]
 const EMBEDDED_SERVER: &[u8] = include_bytes!("../resources/confluence-mcp-server");
 
+/// Ordered candidate paths for the default install dir.
 fn install_dir_candidates() -> Vec<PathBuf> {
     let mut v = Vec::new();
     #[cfg(windows)]
