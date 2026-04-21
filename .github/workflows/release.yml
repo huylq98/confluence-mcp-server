@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -87,6 +91,7 @@ jobs:
           mkdir -p ../../dist
           find ../../target/release/bundle/dmg -name "*.dmg" -maxdepth 1 \
             -exec cp {} ../../dist/ConfluenceConnect.dmg \;
+          [ -f ../../dist/ConfluenceConnect.dmg ] || { echo "ERROR: no .dmg found in target/release/bundle/dmg"; exit 1; }
 
       - name: Upload Mac artifact
         uses: actions/upload-artifact@v4
