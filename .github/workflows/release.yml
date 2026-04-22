@@ -89,7 +89,7 @@ jobs:
         run: |
           cd crates/configurator
           tauri build
-          cd ../..
+          cd ../..  # return to workspace root — build-mac-pkg.sh uses relative paths
           bash scripts/build-mac-pkg.sh
           [ -f dist/ConfluenceConnect.pkg ] || { echo "ERROR: ConfluenceConnect.pkg not found in dist/"; exit 1; }
 
