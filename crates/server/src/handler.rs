@@ -234,7 +234,7 @@ impl ConfluenceServer {
 
         let (text, status) = match resolve(&args.url) {
             UrlResolution::Unparseable => (format_unparseable(&args.url), "ok".to_string()),
-            UrlResolution::TinyUrl(_) => (format_tiny_url(), "ok".to_string()),
+            UrlResolution::TinyUrl => (format_tiny_url(), "ok".to_string()),
             UrlResolution::ById(id) => match self.client.get_page(&id, &expand).await {
                 Ok(page) => (
                     crate::tools::get_page::format(

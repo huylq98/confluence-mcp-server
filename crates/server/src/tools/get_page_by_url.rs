@@ -3,7 +3,7 @@ use confluence_core::{parse_confluence_url, ParsedUrl};
 pub enum UrlResolution {
     ById(String),
     BySpaceTitle { space: String, title: String },
-    TinyUrl(String),
+    TinyUrl,
     Unparseable,
 }
 
@@ -11,7 +11,7 @@ pub fn resolve(url: &str) -> UrlResolution {
     let p: ParsedUrl = parse_confluence_url(url);
     if let Some(id) = &p.page_id {
         if id.starts_with("tinyurl:") {
-            return UrlResolution::TinyUrl(url.to_string());
+            return UrlResolution::TinyUrl;
         }
         return UrlResolution::ById(id.clone());
     }
@@ -59,7 +59,7 @@ mod tests {
     #[test]
     fn resolves_tiny_url() {
         let r = resolve("http://wiki/x/abc");
-        assert!(matches!(r, UrlResolution::TinyUrl(_)));
+        assert!(matches!(r, UrlResolution::TinyUrl));
     }
 
     #[test]

@@ -4,7 +4,7 @@ A small desktop app (plus a Model Context Protocol server) that connects Claude 
 
 ## Install
 
-1. Download `ConfluenceConnect.exe` from the [latest release](../../releases/latest) (~2.8 MB).
+1. Download `ConfluenceConnect.exe` from the [latest release](https://github.com/huylq98/confluence-mcp-server/releases/latest).
 2. Double-click — the wizard opens on the **Setup** tab.
 3. Enter your Confluence URL and a Personal Access Token (or username/password).
 4. Click **Test connection**, then **Save & finish**.

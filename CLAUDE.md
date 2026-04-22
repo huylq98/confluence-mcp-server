@@ -25,7 +25,7 @@ cargo test --workspace -- --test-threads=1
 powershell -ExecutionPolicy Bypass -File scripts/build.ps1
 # From git-bash/MSYS where cargo is not on PATH, use the wrapper instead:
 ./scripts/package.sh
-# Output: dist/ConfluenceConnect.exe (~7.6 MB unsigned, no UPX)
+# Output: dist/ConfluenceConnect.exe (~7.8 MB unsigned)
 
 # Run the wizard in debug mode
 cargo run -p configurator
@@ -42,7 +42,7 @@ Cargo workspace at repo root with three crates:
 - **`crates/server`** — MCP stdio server binary (`confluence-mcp-server.exe`) built on the official `rmcp` crate. Registers 7 Confluence tools: `list_spaces`, `search_confluence`, `get_page`, `get_page_by_title`, `get_page_by_url`, `get_comments`, `get_attachments`. Launched by Claude Desktop on every boot.
 - **`crates/configurator`** — Tauri 2 desktop wizard (`ConfluenceConnect.exe`). Embeds the server binary via `include_bytes!`, extracts it to `%LOCALAPPDATA%\ConfluenceConnect\` (or user-chosen path) on Save, and writes the resulting path into Claude Desktop's `claude_desktop_config.json`.
 
-`scripts/build.ps1` orchestrates the ordered build: server release → UPX → copy into configurator resources → configurator release → UPX → final artifact in `dist/`.
+`scripts/build.ps1` orchestrates the ordered build: server release → copy into configurator resources → configurator release → final artifact in `dist/`. Pass `-UseUpx` to opt into UPX compression (~47% smaller but triggers Windows Defender on some machines).
 
 ## Testing
 

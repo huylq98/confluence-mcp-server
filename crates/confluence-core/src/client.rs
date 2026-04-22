@@ -2,7 +2,7 @@ use crate::pac::{looks_like_pac_url, PacResolver};
 use crate::{Config, ConfluenceError};
 use reqwest::{
     header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION},
-    Method, StatusCode,
+    Method,
 };
 use serde_json::Value;
 use std::sync::Arc;
@@ -216,7 +216,3 @@ impl Client {
         self.get_json(&path, &q).await
     }
 }
-
-// Silence unused-status warning for future tasks
-#[allow(dead_code)]
-fn _retain_status_import(_s: StatusCode) {}
