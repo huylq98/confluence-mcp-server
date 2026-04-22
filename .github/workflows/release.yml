@@ -72,9 +72,10 @@ jobs:
           mkdir -p crates/configurator/resources
           cp target/release/confluence-mcp-server crates/configurator/resources/confluence-mcp-server
 
-      - name: Generate icon.icns
+      - name: Generate icon.icns and icon.png
         run: |
           sips -s format png crates/configurator/icons/icon.ico --out /tmp/app_icon.png
+          cp /tmp/app_icon.png crates/configurator/icons/icon.png
           mkdir /tmp/icon.iconset
           for size in 16 32 128 256 512; do
             sips -z $size $size /tmp/app_icon.png \
