@@ -441,7 +441,7 @@
       </svg>
       <span>Confluence&nbsp;Connect</span>
     </a>
-    <a class="nav-cta" href="https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.exe" target="_blank" rel="noopener noreferrer">
+    <a class="nav-cta" id="nav-dl" href="https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.exe" target="_blank" rel="noopener noreferrer">
       Download <span class="nav-cta-arrow">↓</span>
     </a>
   </div>
@@ -456,16 +456,16 @@
       <em>your Confluence.</em>
     </h1>
     <p class="hero-lede">A one-time setup tool that connects Claude Desktop to your Confluence Server or Data Center.</p>
-    <div class="download-row">
-      <div class="download-card">
-        <a class="btn-dl btn-primary-dl" href="https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.exe" target="_blank" rel="noopener noreferrer">
+    <div class="download-row" id="download-row">
+      <div class="download-card" id="card-win">
+        <a class="btn-dl btn-primary-dl" id="btn-win" href="https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.exe" target="_blank" rel="noopener noreferrer">
           <span>Download for Windows</span>
           <span class="btn-dl-arrow">→</span>
         </a>
         <p class="dl-note">Windows may warn about unknown publisher — click <strong>More info → Run anyway</strong></p>
       </div>
-      <div class="download-card">
-        <a class="btn-dl btn-secondary-dl" href="https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.pkg" target="_blank" rel="noopener noreferrer">
+      <div class="download-card" id="card-mac">
+        <a class="btn-dl btn-secondary-dl" id="btn-mac" href="https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.pkg" target="_blank" rel="noopener noreferrer">
           <span>Download for Mac</span>
           <span class="btn-dl-arrow">→</span>
         </a>
@@ -543,5 +543,16 @@
   </div>
 </footer>
 
+<script>
+  (function () {
+    if (!/Macintosh|MacIntel|MacPPC|Mac68K/i.test(navigator.userAgent)) return;
+    document.getElementById('btn-win').className = 'btn-dl btn-secondary-dl';
+    document.getElementById('btn-mac').className = 'btn-dl btn-primary-dl';
+    var row = document.getElementById('download-row');
+    row.insertBefore(document.getElementById('card-mac'), row.firstChild);
+    var nav = document.getElementById('nav-dl');
+    nav.href = 'https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.pkg';
+  }());
+</script>
 </body>
 </html>
