@@ -89,16 +89,15 @@ jobs:
         run: |
           cd crates/configurator
           tauri build
-          mkdir -p ../../dist
-          find ../../target/release/bundle/dmg -name "*.dmg" -maxdepth 1 \
-            -exec cp {} ../../dist/ConfluenceConnect.dmg \;
-          [ -f ../../dist/ConfluenceConnect.dmg ] || { echo "ERROR: no .dmg found in target/release/bundle/dmg"; exit 1; }
+          cd ../..
+          bash scripts/build-mac-pkg.sh
+          [ -f dist/ConfluenceConnect.pkg ] || { echo "ERROR: ConfluenceConnect.pkg not found in dist/"; exit 1; }
 
       - name: Upload Mac artifact
         uses: actions/upload-artifact@v4
         with:
           name: mac-dist
-          path: dist/ConfluenceConnect.dmg
+          path: dist/ConfluenceConnect.pkg
 
   publish:
     needs: [build-windows, build-mac]
@@ -121,5 +120,5 @@ jobs:
         with:
           files: |
             dist/windows/ConfluenceConnect.exe
-            dist/mac/ConfluenceConnect.dmg
+            dist/mac/ConfluenceConnect.pkg
           generate_release_notes: true
