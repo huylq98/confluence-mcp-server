@@ -1,5 +1,6 @@
 # Confluence Connect
 
+[![SafeSkill 93/100](https://img.shields.io/badge/SafeSkill-93%2F100_Verified%20Safe-brightgreen)](https://safeskill.dev/scan/huylq98-confluence-mcp-server)
 A small desktop app (plus a Model Context Protocol server) that connects Claude Desktop to a self-hosted **Confluence Server / Data Center** instance. Setup takes about two minutes; the wizard monitors the server and lets you stop or remove it at any time.
 
 ## Install
