@@ -5,14 +5,14 @@ APP_NAME="ConfluenceConnect"
 APP_SRC="target/release/bundle/macos/${APP_NAME}.app"
 STAGING_DIR="$(mktemp -d)"
 PKG_SCRIPTS_DIR="$(mktemp -d)"
-COMPONENT_PKG="${STAGING_DIR}/${APP_NAME}-component.pkg"
+COMPONENT_PKG="/tmp/${APP_NAME}-component.pkg"
 DIST_DIR="dist"
 OUTPUT_PKG="${DIST_DIR}/${APP_NAME}.pkg"
 VERSION="${GITHUB_REF_NAME:-0.0.0}"
 VERSION="${VERSION#v}"   # strip leading 'v' from git tag
-IDENTIFIER="io.github.huylq98.confluence-mcp-server"
+IDENTIFIER="com.confluence-connect"
 
-trap 'rm -rf "${STAGING_DIR}" "${PKG_SCRIPTS_DIR}"' EXIT
+trap 'rm -rf "${STAGING_DIR}" "${PKG_SCRIPTS_DIR}" "${COMPONENT_PKG}"' EXIT
 
 [ -d "${APP_SRC}" ] || { echo "ERROR: .app not found at ${APP_SRC}"; exit 1; }
 
