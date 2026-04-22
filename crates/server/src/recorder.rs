@@ -93,14 +93,21 @@ fn append_line(path: &Path, line: &str) {
 }
 
 fn truncate_to_last_n_lines(path: &Path, max: usize) {
-    let Ok(file) = std::fs::File::open(path) else { return };
-    let lines: Vec<String> = BufReader::new(file).lines().filter_map(Result::ok).collect();
+    let Ok(file) = std::fs::File::open(path) else {
+        return;
+    };
+    let lines: Vec<String> = BufReader::new(file)
+        .lines()
+        .filter_map(Result::ok)
+        .collect();
     if lines.len() <= max {
         return;
     }
     let keep = &lines[lines.len() - max..];
     let tmp = path.with_extension("jsonl.tmp");
-    let Ok(mut f) = std::fs::File::create(&tmp) else { return };
+    let Ok(mut f) = std::fs::File::create(&tmp) else {
+        return;
+    };
     for l in keep {
         if writeln!(f, "{l}").is_err() {
             // Don't leave a partial tmp file on disk.
@@ -117,15 +124,21 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn ts() -> i64 { 1700000000 }
+    fn ts() -> i64 {
+        1700000000
+    }
 
     #[test]
     fn append_creates_file_with_one_line() {
         let dir = tempfile::tempdir().unwrap();
         let rec = Recorder::new(dir.path().to_path_buf());
         rec.record_history(&HistoryEntry {
-            ts: ts(), tool: "list_spaces", args: json!({}),
-            out_chars: 42, tokens_est: 10, status: "ok",
+            ts: ts(),
+            tool: "list_spaces",
+            args: json!({}),
+            out_chars: 42,
+            tokens_est: 10,
+            status: "ok",
         });
         let contents = std::fs::read_to_string(dir.path().join(HISTORY_FILE)).unwrap();
         assert_eq!(contents.lines().count(), 1);
@@ -140,8 +153,12 @@ mod tests {
         let rec = Recorder::new(dir.path().to_path_buf());
         for _ in 0..5 {
             rec.record_history(&HistoryEntry {
-                ts: ts(), tool: "get_page", args: json!({"page_id":"1"}),
-                out_chars: 10, tokens_est: 2, status: "ok",
+                ts: ts(),
+                tool: "get_page",
+                args: json!({"page_id":"1"}),
+                out_chars: 10,
+                tokens_est: 2,
+                status: "ok",
             });
         }
         let contents = std::fs::read_to_string(dir.path().join(HISTORY_FILE)).unwrap();
@@ -153,7 +170,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let rec = Recorder::new(dir.path().to_path_buf());
         rec.record_error(&ErrorEntry {
-            ts: ts(), tool: "get_page", status: "403", message: "denied",
+            ts: ts(),
+            tool: "get_page",
+            status: "403",
+            message: "denied",
         });
         assert!(!dir.path().join(HISTORY_FILE).exists());
         assert!(dir.path().join(ERRORS_FILE).exists());
@@ -186,8 +206,12 @@ mod tests {
         let rec = Recorder::new(dir.path().to_path_buf());
         for i in 0..150 {
             rec.record_history(&HistoryEntry {
-                ts: ts() + i, tool: "get_page", args: json!({"page_id": i.to_string()}),
-                out_chars: 10, tokens_est: 2, status: "ok",
+                ts: ts() + i,
+                tool: "get_page",
+                args: json!({"page_id": i.to_string()}),
+                out_chars: 10,
+                tokens_est: 2,
+                status: "ok",
             });
         }
         let contents = std::fs::read_to_string(dir.path().join(HISTORY_FILE)).unwrap();

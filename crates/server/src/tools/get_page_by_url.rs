@@ -51,7 +51,9 @@ mod tests {
     #[test]
     fn resolves_space_title() {
         let r = resolve("http://wiki/display/DEV/My+Page");
-        assert!(matches!(r, UrlResolution::BySpaceTitle { space, title } if space == "DEV" && title == "My Page"));
+        assert!(
+            matches!(r, UrlResolution::BySpaceTitle { space, title } if space == "DEV" && title == "My Page")
+        );
     }
 
     #[test]

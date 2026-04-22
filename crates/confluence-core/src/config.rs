@@ -23,7 +23,9 @@ impl Config {
             std::env::var(key).ok().filter(|v| !v.is_empty())
         }
         fn env_bool(key: &str, default: bool) -> bool {
-            env(key).map(|v| !matches!(v.to_lowercase().as_str(), "false" | "0" | "no")).unwrap_or(default)
+            env(key)
+                .map(|v| !matches!(v.to_lowercase().as_str(), "false" | "0" | "no"))
+                .unwrap_or(default)
         }
         fn env_u32(key: &str, default: u32) -> u32 {
             env(key).and_then(|v| v.parse().ok()).unwrap_or(default)
@@ -33,7 +35,10 @@ impl Config {
         }
 
         Self {
-            confluence_url: env("CONFLUENCE_URL").unwrap_or_default().trim_end_matches('/').to_string(),
+            confluence_url: env("CONFLUENCE_URL")
+                .unwrap_or_default()
+                .trim_end_matches('/')
+                .to_string(),
             username: env("CONFLUENCE_USERNAME"),
             password: env("CONFLUENCE_PASSWORD"),
             token: env("CONFLUENCE_TOKEN"),
@@ -61,7 +66,11 @@ impl Config {
     }
 
     pub fn auth_method(&self) -> &'static str {
-        if self.token.is_some() { "bearer token" } else { "basic auth" }
+        if self.token.is_some() {
+            "bearer token"
+        } else {
+            "basic auth"
+        }
     }
 }
 
@@ -71,8 +80,12 @@ mod tests {
 
     fn clear_env() {
         for key in [
-            "CONFLUENCE_URL", "CONFLUENCE_USERNAME", "CONFLUENCE_PASSWORD",
-            "CONFLUENCE_TOKEN", "CONFLUENCE_SSL_VERIFY", "CONFLUENCE_TIMEOUT",
+            "CONFLUENCE_URL",
+            "CONFLUENCE_USERNAME",
+            "CONFLUENCE_PASSWORD",
+            "CONFLUENCE_TOKEN",
+            "CONFLUENCE_SSL_VERIFY",
+            "CONFLUENCE_TIMEOUT",
         ] {
             std::env::remove_var(key);
         }

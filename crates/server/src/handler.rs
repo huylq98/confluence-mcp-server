@@ -1,14 +1,14 @@
+use crate::recorder::{ErrorEntry, HistoryEntry, Recorder};
 use anyhow::Result;
 use confluence_core::{Client, Config, ConfluenceError};
+use rmcp::schemars::JsonSchema;
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
     tool, tool_handler, tool_router, ServerHandler,
 };
-use rmcp::schemars::JsonSchema;
 use serde::Deserialize;
 use std::sync::Arc;
-use crate::recorder::{ErrorEntry, HistoryEntry, Recorder};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -86,7 +86,13 @@ impl ConfluenceServer {
         // system proxy — same PAC / static config the user's browser uses.
         // This makes the server "just work" on corporate networks where the
         // browser succeeds but a raw reqwest client (no proxy awareness) fails.
-        if config.proxy_url.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        if config
+            .proxy_url
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or("")
+            .is_empty()
+        {
             let detected = confluence_core::system_proxy::detect();
             if let Some(p) = detected.display() {
                 tracing::info!(proxy = %p, source = "Windows system settings", "auto-applied proxy");
@@ -109,17 +115,16 @@ impl ConfluenceServer {
     }
 
     fn now_ts() -> i64 {
-        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0)
     }
 
-    fn record(
-        &self,
-        tool: &'static str,
-        args: serde_json::Value,
-        text: &str,
-        status: &str,
-    ) {
-        let Some(rec) = self.recorder.as_ref() else { return };
+    fn record(&self, tool: &'static str, args: serde_json::Value, text: &str, status: &str) {
+        let Some(rec) = self.recorder.as_ref() else {
+            return;
+        };
         let out_chars = text.chars().count();
         rec.record_history(&HistoryEntry {
             ts: Self::now_ts(),
@@ -132,7 +137,9 @@ impl ConfluenceServer {
     }
 
     fn record_error(&self, tool: &'static str, status: &str, message: &str) {
-        let Some(rec) = self.recorder.as_ref() else { return };
+        let Some(rec) = self.recorder.as_ref() else {
+            return;
+        };
         let snippet: String = message.chars().take(300).collect();
         rec.record_error(&ErrorEntry {
             ts: Self::now_ts(),
@@ -142,14 +149,14 @@ impl ConfluenceServer {
         });
     }
 
-    fn handle_err(
-        &self,
-        tool: &'static str,
-        e: &ConfluenceError,
-    ) -> (String, String) {
+    fn handle_err(&self, tool: &'static str, e: &ConfluenceError) -> (String, String) {
         let msg = crate::format::error_response(e);
         let code = e.status_code();
-        let status = if code > 0 { code.to_string() } else { "error".into() };
+        let status = if code > 0 {
+            code.to_string()
+        } else {
+            "error".into()
+        };
         self.record_error(tool, &status, &msg);
         (msg, status)
     }
@@ -161,11 +168,23 @@ impl ConfluenceServer {
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         let limit = args.limit.unwrap_or(50);
         let page_id = args.page_id.clone();
-        let (text, status) = match self.client.get_child(&page_id, "attachment", "version", limit).await {
-            Ok(data) => (crate::tools::get_attachments::format(&data, &self.config.confluence_url), "ok".to_string()),
+        let (text, status) = match self
+            .client
+            .get_child(&page_id, "attachment", "version", limit)
+            .await
+        {
+            Ok(data) => (
+                crate::tools::get_attachments::format(&data, &self.config.confluence_url),
+                "ok".to_string(),
+            ),
             Err(e) => self.handle_err("get_attachments", &e),
         };
-        self.record("get_attachments", serde_json::json!({"page_id": page_id}), &text, &status);
+        self.record(
+            "get_attachments",
+            serde_json::json!({"page_id": page_id}),
+            &text,
+            &status,
+        );
         Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
@@ -176,20 +195,38 @@ impl ConfluenceServer {
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         let limit = args.limit.unwrap_or(25);
         let page_id = args.page_id.clone();
-        let (text, status) = match self.client.get_child(&page_id, "comment", "body.view,version,extensions.inlineProperties", limit).await {
+        let (text, status) = match self
+            .client
+            .get_child(
+                &page_id,
+                "comment",
+                "body.view,version,extensions.inlineProperties",
+                limit,
+            )
+            .await
+        {
             Ok(data) => (crate::tools::get_comments::format(&data), "ok".to_string()),
             Err(e) => self.handle_err("get_comments", &e),
         };
-        self.record("get_comments", serde_json::json!({"page_id": page_id}), &text, &status);
+        self.record(
+            "get_comments",
+            serde_json::json!({"page_id": page_id}),
+            &text,
+            &status,
+        );
         Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
-    #[tool(description = "Retrieve a Confluence page by its full URL. Supports all common URL formats.")]
+    #[tool(
+        description = "Retrieve a Confluence page by its full URL. Supports all common URL formats."
+    )]
     async fn get_page_by_url(
         &self,
         Parameters(args): Parameters<GetPageByUrlArgs>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
-        use crate::tools::get_page_by_url::{resolve, UrlResolution, format_unparseable, format_tiny_url};
+        use crate::tools::get_page_by_url::{
+            format_tiny_url, format_unparseable, resolve, UrlResolution,
+        };
 
         let body_format = args.format.as_deref().unwrap_or("storage");
         let expand = format!("body.{body_format},version,space,metadata.labels,ancestors");
@@ -197,26 +234,46 @@ impl ConfluenceServer {
 
         let (text, status) = match resolve(&args.url) {
             UrlResolution::Unparseable => (format_unparseable(&args.url), "ok".to_string()),
-            UrlResolution::TinyUrl(_)  => (format_tiny_url(), "ok".to_string()),
+            UrlResolution::TinyUrl(_) => (format_tiny_url(), "ok".to_string()),
             UrlResolution::ById(id) => match self.client.get_page(&id, &expand).await {
-                Ok(page) => (crate::tools::get_page::format(&page, body_format, true, &self.config.confluence_url, self.config.max_content_length), "ok".to_string()),
+                Ok(page) => (
+                    crate::tools::get_page::format(
+                        &page,
+                        body_format,
+                        true,
+                        &self.config.confluence_url,
+                        self.config.max_content_length,
+                    ),
+                    "ok".to_string(),
+                ),
                 Err(e) => self.handle_err("get_page_by_url", &e),
             },
-            UrlResolution::BySpaceTitle { space, title } => match self.client.get_page_by_title(&space, &title, &expand).await {
-                Ok(data) => {
-                    let empty = vec![];
-                    let results = data.pointer("/results").and_then(|v| v.as_array()).unwrap_or(&empty);
-                    let text = if results.is_empty() {
-                        format!(
+            UrlResolution::BySpaceTitle { space, title } => {
+                match self.client.get_page_by_title(&space, &title, &expand).await {
+                    Ok(data) => {
+                        let empty = vec![];
+                        let results = data
+                            .pointer("/results")
+                            .and_then(|v| v.as_array())
+                            .unwrap_or(&empty);
+                        let text = if results.is_empty() {
+                            format!(
                             "No page titled '{title}' found in space {space}.\nTip: Try search_confluence with: title~\"{title}\" AND space={space}"
                         )
-                    } else {
-                        crate::tools::get_page::format(&results[0], body_format, true, &self.config.confluence_url, self.config.max_content_length)
-                    };
-                    (text, "ok".to_string())
+                        } else {
+                            crate::tools::get_page::format(
+                                &results[0],
+                                body_format,
+                                true,
+                                &self.config.confluence_url,
+                                self.config.max_content_length,
+                            )
+                        };
+                        (text, "ok".to_string())
+                    }
+                    Err(e) => self.handle_err("get_page_by_url", &e),
                 }
-                Err(e) => self.handle_err("get_page_by_url", &e),
-            },
+            }
         };
         self.record("get_page_by_url", args_json, &text, &status);
         Ok(CallToolResult::success(vec![Content::text(text)]))
@@ -229,14 +286,26 @@ impl ConfluenceServer {
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         let expand = "body.storage,version,space,metadata.labels,ancestors";
         let args_json = serde_json::json!({"space_key": args.space_key, "title": args.title});
-        let (text, status) = match self.client.get_page_by_title(&args.space_key, &args.title, expand).await {
+        let (text, status) = match self
+            .client
+            .get_page_by_title(&args.space_key, &args.title, expand)
+            .await
+        {
             Ok(data) => {
                 let empty = vec![];
-                let results = data.pointer("/results").and_then(|v| v.as_array()).unwrap_or(&empty);
+                let results = data
+                    .pointer("/results")
+                    .and_then(|v| v.as_array())
+                    .unwrap_or(&empty);
                 let text = if results.is_empty() {
                     crate::tools::get_page_by_title::format_not_found(&args.space_key, &args.title)
                 } else {
-                    crate::tools::get_page_by_title::format_found(&results[0], &args.space_key, &self.config.confluence_url, self.config.max_content_length)
+                    crate::tools::get_page_by_title::format_found(
+                        &results[0],
+                        &args.space_key,
+                        &self.config.confluence_url,
+                        self.config.max_content_length,
+                    )
                 };
                 (text, "ok".to_string())
             }
@@ -264,12 +333,23 @@ impl ConfluenceServer {
 
         let (text, status) = match self.client.get_page(&page_id, &expand).await {
             Ok(page) => (
-                crate::tools::get_page::format(&page, body_format, include_body, &self.config.confluence_url, self.config.max_content_length),
+                crate::tools::get_page::format(
+                    &page,
+                    body_format,
+                    include_body,
+                    &self.config.confluence_url,
+                    self.config.max_content_length,
+                ),
                 "ok".to_string(),
             ),
             Err(e) => self.handle_err("get_page", &e),
         };
-        self.record("get_page", serde_json::json!({"page_id": page_id}), &text, &status);
+        self.record(
+            "get_page",
+            serde_json::json!({"page_id": page_id}),
+            &text,
+            &status,
+        );
         Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
@@ -279,8 +359,15 @@ impl ConfluenceServer {
         Parameters(args): Parameters<SearchArgs>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         let limit = args.limit.unwrap_or(10).clamp(1, 50);
-        let (text, status) = match self.client.search(&args.cql, limit, "space,version,metadata.labels").await {
-            Ok(data) => (crate::tools::search_confluence::format(&data, &self.config.confluence_url), "ok".to_string()),
+        let (text, status) = match self
+            .client
+            .search(&args.cql, limit, "space,version,metadata.labels")
+            .await
+        {
+            Ok(data) => (
+                crate::tools::search_confluence::format(&data, &self.config.confluence_url),
+                "ok".to_string(),
+            ),
             Err(e) => self.handle_err("search_confluence", &e),
         };
         self.record("search_confluence", serde_json::json!({}), &text, &status);
@@ -297,7 +384,11 @@ impl ConfluenceServer {
             Some(other) => Some(other),
         };
         let limit = args.limit.unwrap_or(50);
-        let (text, status) = match self.client.list_spaces(space_type, limit, "description.plain").await {
+        let (text, status) = match self
+            .client
+            .list_spaces(space_type, limit, "description.plain")
+            .await
+        {
             Ok(data) => (crate::tools::list_spaces::format(&data), "ok".to_string()),
             Err(e) => self.handle_err("list_spaces", &e),
         };
@@ -323,7 +414,8 @@ impl ServerHandler for ConfluenceServer {
                 "Confluence Server integration. Use these tools to search wiki pages, \
                 read page content, list spaces, and fetch comments/attachments from a \
                 self-hosted Confluence instance. When a user pastes a Confluence URL, \
-                always use get_page_by_url to fetch the page content directly from the link.".into()
+                always use get_page_by_url to fetch the page content directly from the link."
+                    .into(),
             ),
         }
     }
@@ -336,7 +428,10 @@ mod tests {
     #[test]
     fn status_encoding_http_vs_client_error() {
         // Real HTTP status (403) -> "403"
-        let http_err = ConfluenceError::Http { status: 403, message: "denied".into() };
+        let http_err = ConfluenceError::Http {
+            status: 403,
+            message: "denied".into(),
+        };
         assert_eq!(http_err.status_code(), 403);
 
         // Non-HTTP error path (reqwest network failure) should have status_code() == 0

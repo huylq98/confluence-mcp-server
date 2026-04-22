@@ -58,7 +58,9 @@ pub fn read_errors(dir: &Path) -> Vec<ErrorRow> {
 }
 
 fn read_jsonl<T: serde::de::DeserializeOwned>(path: &Path) -> Vec<T> {
-    let Ok(contents) = std::fs::read_to_string(path) else { return Vec::new() };
+    let Ok(contents) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
     contents
         .lines()
         .filter(|l| !l.trim().is_empty())
@@ -70,7 +72,10 @@ fn read_jsonl<T: serde::de::DeserializeOwned>(path: &Path) -> Vec<T> {
 pub fn summarize(history: &[HistoryRow], errors: &[ErrorRow], now_ts: i64) -> StatsSummary {
     use chrono::{Local, TimeZone, Utc};
 
-    let now = Utc.timestamp_opt(now_ts, 0).single().unwrap_or_else(Utc::now);
+    let now = Utc
+        .timestamp_opt(now_ts, 0)
+        .single()
+        .unwrap_or_else(Utc::now);
     let today_local = now.with_timezone(&Local).date_naive();
 
     let mut today_calls = 0usize;
@@ -79,7 +84,9 @@ pub fn summarize(history: &[HistoryRow], errors: &[ErrorRow], now_ts: i64) -> St
     let mut daily: BTreeMap<String, (usize, usize)> = BTreeMap::new();
 
     for row in history {
-        let Some(ts) = Utc.timestamp_opt(row.ts, 0).single() else { continue };
+        let Some(ts) = Utc.timestamp_opt(row.ts, 0).single() else {
+            continue;
+        };
         let local_date = ts.with_timezone(&Local).date_naive();
         let key = local_date.format("%Y-%m-%d").to_string();
         let entry = daily.entry(key).or_insert((0, 0));
@@ -92,19 +99,26 @@ pub fn summarize(history: &[HistoryRow], errors: &[ErrorRow], now_ts: i64) -> St
         last_call_ts = Some(last_call_ts.map_or(row.ts, |cur| cur.max(row.ts)));
     }
 
-    let today_errors = errors.iter().filter(|e| {
-        Utc.timestamp_opt(e.ts, 0)
-            .single()
-            .map(|ts| ts.with_timezone(&Local).date_naive() == today_local)
-            .unwrap_or(false)
-    }).count();
+    let today_errors = errors
+        .iter()
+        .filter(|e| {
+            Utc.timestamp_opt(e.ts, 0)
+                .single()
+                .map(|ts| ts.with_timezone(&Local).date_naive() == today_local)
+                .unwrap_or(false)
+        })
+        .count();
 
     let mut seven_day_tokens = Vec::with_capacity(7);
     for i in (0..7).rev() {
         let d = today_local - chrono::Duration::days(i);
         let key = d.format("%Y-%m-%d").to_string();
         let (calls, tokens) = daily.get(&key).copied().unwrap_or((0, 0));
-        seven_day_tokens.push(DayBucket { date: key, calls, tokens });
+        seven_day_tokens.push(DayBucket {
+            date: key,
+            calls,
+            tokens,
+        });
     }
 
     let mut recent_errors = errors.to_vec();
@@ -112,7 +126,9 @@ pub fn summarize(history: &[HistoryRow], errors: &[ErrorRow], now_ts: i64) -> St
     recent_errors.truncate(20);
 
     StatsSummary {
-        today_calls, today_tokens, today_errors,
+        today_calls,
+        today_tokens,
+        today_errors,
         last_call_ts,
         seven_day_tokens,
         recent_errors,
@@ -125,8 +141,12 @@ mod tests {
 
     fn row(ts: i64, tool: &str, tokens: usize, status: &str) -> HistoryRow {
         HistoryRow {
-            ts, tool: tool.into(), args: serde_json::json!({}),
-            out_chars: tokens * 4, tokens_est: tokens, status: status.into(),
+            ts,
+            tool: tool.into(),
+            args: serde_json::json!({}),
+            out_chars: tokens * 4,
+            tokens_est: tokens,
+            status: status.into(),
         }
     }
 
@@ -158,8 +178,18 @@ mod tests {
         let now = 1_700_000_000;
         let day = 86_400i64;
         let errors = vec![
-            ErrorRow { ts: now, tool: "get_page".into(), status: "403".into(), message: "today".into() },
-            ErrorRow { ts: now - 2 * day, tool: "get_page".into(), status: "403".into(), message: "two days ago".into() },
+            ErrorRow {
+                ts: now,
+                tool: "get_page".into(),
+                status: "403".into(),
+                message: "today".into(),
+            },
+            ErrorRow {
+                ts: now - 2 * day,
+                tool: "get_page".into(),
+                status: "403".into(),
+                message: "two days ago".into(),
+            },
         ];
         let s = summarize(&[], &errors, now);
         assert_eq!(s.today_errors, 1);
@@ -168,12 +198,14 @@ mod tests {
     #[test]
     fn recent_errors_sorted_newest_first_truncated_to_20() {
         let base = 1_700_000_000;
-        let errors: Vec<ErrorRow> = (0..30).map(|i| ErrorRow {
-            ts: base - i,
-            tool: "get_page".into(),
-            status: "403".into(),
-            message: format!("err{i}"),
-        }).collect();
+        let errors: Vec<ErrorRow> = (0..30)
+            .map(|i| ErrorRow {
+                ts: base - i,
+                tool: "get_page".into(),
+                status: "403".into(),
+                message: format!("err{i}"),
+            })
+            .collect();
         let s = summarize(&[], &errors, base);
         assert_eq!(s.recent_errors.len(), 20);
         assert_eq!(s.recent_errors[0].message, "err0");

@@ -81,7 +81,9 @@ fn parse_inner(parsed: &Url) -> ParsedUrl {
 
 fn decode_title(raw: &str) -> String {
     let with_spaces = raw.replace('+', " ");
-    urlencoding::decode(&with_spaces).map(|s| s.into_owned()).unwrap_or(with_spaces)
+    urlencoding::decode(&with_spaces)
+        .map(|s| s.into_owned())
+        .unwrap_or(with_spaces)
 }
 
 #[cfg(test)]

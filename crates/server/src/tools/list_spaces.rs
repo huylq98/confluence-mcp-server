@@ -2,7 +2,10 @@ use serde_json::Value;
 
 pub fn format(response: &Value) -> String {
     let empty = vec![];
-    let spaces = response.pointer("/results").and_then(Value::as_array).unwrap_or(&empty);
+    let spaces = response
+        .pointer("/results")
+        .and_then(Value::as_array)
+        .unwrap_or(&empty);
     if spaces.is_empty() {
         return "No spaces found.".into();
     }
@@ -11,14 +14,20 @@ pub fn format(response: &Value) -> String {
         let name = s["name"].as_str().unwrap_or("?");
         let key = s["key"].as_str().unwrap_or("?");
         let stype = s["type"].as_str().unwrap_or("?");
-        let desc = s.pointer("/description/plain/value").and_then(Value::as_str).unwrap_or("").trim();
+        let desc = s
+            .pointer("/description/plain/value")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim();
         let desc_preview = if desc.chars().count() > 80 {
             format!("{}…", desc.chars().take(80).collect::<String>())
         } else {
             desc.to_string()
         };
         let mut entry = format!("- **{name}** — key: `{key}` ({stype})");
-        if !desc_preview.is_empty() { entry.push_str(&format!("\n  {desc_preview}")); }
+        if !desc_preview.is_empty() {
+            entry.push_str(&format!("\n  {desc_preview}"));
+        }
         lines.push(entry);
     }
     lines.join("\n")

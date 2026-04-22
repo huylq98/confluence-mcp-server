@@ -68,9 +68,8 @@ mod win {
     use winapi::ctypes::c_void;
     use winapi::um::winhttp::{
         WinHttpCloseHandle, WinHttpGetProxyForUrl, WinHttpOpen, HINTERNET,
-        WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_AUTOPROXY_AUTO_DETECT,
-        WINHTTP_AUTOPROXY_CONFIG_URL, WINHTTP_AUTOPROXY_OPTIONS,
-        WINHTTP_AUTO_DETECT_TYPE_DHCP, WINHTTP_AUTO_DETECT_TYPE_DNS_A,
+        WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_AUTOPROXY_AUTO_DETECT, WINHTTP_AUTOPROXY_CONFIG_URL,
+        WINHTTP_AUTOPROXY_OPTIONS, WINHTTP_AUTO_DETECT_TYPE_DHCP, WINHTTP_AUTO_DETECT_TYPE_DNS_A,
         WINHTTP_PROXY_INFO,
     };
 
@@ -158,12 +157,7 @@ mod win {
             };
 
             let ok = unsafe {
-                WinHttpGetProxyForUrl(
-                    self.session.0,
-                    target_w.as_ptr(),
-                    &mut opts,
-                    &mut info,
-                )
+                WinHttpGetProxyForUrl(self.session.0, target_w.as_ptr(), &mut opts, &mut info)
             };
 
             if ok == 0 {
@@ -274,7 +268,10 @@ mod tests {
         let u = choose_proxy(list, scheme).unwrap();
         // `url::Url` strips the default port (80 for http), so we inspect
         // host + port directly rather than the serialized form.
-        (u.host_str().unwrap().to_string(), u.port_or_known_default().unwrap())
+        (
+            u.host_str().unwrap().to_string(),
+            u.port_or_known_default().unwrap(),
+        )
     }
 
     #[test]
@@ -284,7 +281,10 @@ mod tests {
 
     #[test]
     fn per_scheme_https_for_https_target() {
-        assert_eq!(host_port("http=a:80;https=b:443", "https"), ("b".into(), 443));
+        assert_eq!(
+            host_port("http=a:80;https=b:443", "https"),
+            ("b".into(), 443)
+        );
     }
 
     #[test]

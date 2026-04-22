@@ -139,7 +139,10 @@ mod tests {
 
     #[test]
     fn plain_host_port_gets_http_scheme() {
-        assert_eq!(normalize_ie_proxy("proxy.corp:3128"), Some("http://proxy.corp:3128".into()));
+        assert_eq!(
+            normalize_ie_proxy("proxy.corp:3128"),
+            Some("http://proxy.corp:3128".into())
+        );
     }
 
     #[test]

@@ -1,6 +1,9 @@
 use crate::analyzer::{analyze, Tip};
-use crate::claude_config::{default_config_path, read_config, remove_confluence_entry, write_confluence_entry, ConfluenceEntry};
-use crate::installer::{extract_server, probe_writable, resolve_install_dir, default_install_dir};
+use crate::claude_config::{
+    default_config_path, read_config, remove_confluence_entry, write_confluence_entry,
+    ConfluenceEntry,
+};
+use crate::installer::{default_install_dir, extract_server, probe_writable, resolve_install_dir};
 use crate::stats::{read_errors, read_history, summarize, StatsSummary};
 use confluence_core::{Client, Config, ConfluenceError};
 use serde::{Deserialize, Serialize};
@@ -31,26 +34,33 @@ pub struct LoadedConfig {
 pub async fn load_existing_config() -> Result<LoadedConfig, String> {
     let path = default_config_path();
     let existing = read_config(&path).map_err(|e| e.to_string())?;
-    let (url, username, password, token, ssl_verify, install_dir, proxy_url) = match &existing.confluence {
-        Some(c) => {
-            let dir = PathBuf::from(&c.command).parent().map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|| default_install_dir().to_string_lossy().to_string());
-            (
-                c.url.clone(),
-                c.username.clone().unwrap_or_default(),
-                c.password.clone().unwrap_or_default(),
-                c.token.clone().unwrap_or_default(),
-                c.ssl_verify,
-                dir,
-                c.proxy_url.clone().unwrap_or_default(),
-            )
-        }
-        None => (
-            String::new(), String::new(), String::new(), String::new(), true,
-            default_install_dir().to_string_lossy().to_string(),
-            String::new(),
-        ),
-    };
+    let (url, username, password, token, ssl_verify, install_dir, proxy_url) =
+        match &existing.confluence {
+            Some(c) => {
+                let dir = PathBuf::from(&c.command)
+                    .parent()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| default_install_dir().to_string_lossy().to_string());
+                (
+                    c.url.clone(),
+                    c.username.clone().unwrap_or_default(),
+                    c.password.clone().unwrap_or_default(),
+                    c.token.clone().unwrap_or_default(),
+                    c.ssl_verify,
+                    dir,
+                    c.proxy_url.clone().unwrap_or_default(),
+                )
+            }
+            None => (
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+                true,
+                default_install_dir().to_string_lossy().to_string(),
+                String::new(),
+            ),
+        };
     let detected = confluence_core::system_proxy::detect();
     let detected_proxy_url = detected.display().unwrap_or_default();
     let detected_proxy_kind = if detected.pac_url.is_some() {
@@ -66,7 +76,13 @@ pub async fn load_existing_config() -> Result<LoadedConfig, String> {
     Ok(LoadedConfig {
         config_exists: existing.path_exists,
         confluence_configured: existing.confluence.is_some(),
-        url, username, password, token, ssl_verify, install_dir, proxy_url,
+        url,
+        username,
+        password,
+        token,
+        ssl_verify,
+        install_dir,
+        proxy_url,
         detected_proxy_url,
         detected_proxy_kind,
     })
@@ -94,12 +110,16 @@ pub struct TestConnectionResult {
 #[tauri::command]
 pub async fn test_connection(args: TestConnectionArgs) -> Result<TestConnectionResult, String> {
     if args.url.trim().is_empty() {
-        return Ok(TestConnectionResult { success: false, message: "Please enter the Confluence URL.".into() });
+        return Ok(TestConnectionResult {
+            success: false,
+            message: "Please enter the Confluence URL.".into(),
+        });
     }
     if args.token.is_empty() && (args.username.is_empty() || args.password.is_empty()) {
         return Ok(TestConnectionResult {
             success: false,
-            message: "Please enter either a Personal Access Token or both Username and Password.".into(),
+            message: "Please enter either a Personal Access Token or both Username and Password."
+                .into(),
         });
     }
 
@@ -120,13 +140,25 @@ pub async fn test_connection(args: TestConnectionArgs) -> Result<TestConnectionR
 
     let client = match Client::new(cfg) {
         Ok(c) => c,
-        Err(e) => return Ok(TestConnectionResult { success: false, message: e.to_string() }),
+        Err(e) => {
+            return Ok(TestConnectionResult {
+                success: false,
+                message: e.to_string(),
+            })
+        }
     };
 
     match client.list_spaces(Some("global"), 5, "").await {
         Ok(data) => {
-            let count = data.pointer("/results").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
-            Ok(TestConnectionResult { success: true, message: format!("Connected! Found {count} space(s).") })
+            let count = data
+                .pointer("/results")
+                .and_then(|v| v.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
+            Ok(TestConnectionResult {
+                success: true,
+                message: format!("Connected! Found {count} space(s)."),
+            })
         }
         Err(e) => {
             let detail = format_error_chain(&e);
@@ -161,7 +193,10 @@ pub async fn test_connection(args: TestConnectionArgs) -> Result<TestConnectionR
                 }
                 code => format!("Error (HTTP {code}): {detail}"),
             };
-            Ok(TestConnectionResult { success: false, message: msg })
+            Ok(TestConnectionResult {
+                success: false,
+                message: msg,
+            })
         }
     }
 }
@@ -194,8 +229,12 @@ pub async fn save_config(args: SaveConfigArgs) -> Result<SaveConfigResult, Strin
     if let Err(e) = probe_writable(&dir) {
         return Ok(SaveConfigResult {
             success: false,
-            message: format!("Cannot write to {}: {e}. Pick a different folder.", dir.display()),
-            config_path: String::new(), server_path: String::new(),
+            message: format!(
+                "Cannot write to {}: {e}. Pick a different folder.",
+                dir.display()
+            ),
+            config_path: String::new(),
+            server_path: String::new(),
         });
     }
 
@@ -221,7 +260,9 @@ pub async fn save_config(args: SaveConfigArgs) -> Result<SaveConfigResult, Strin
     if let Err(e) = write_confluence_entry(&config_path, &entry) {
         return Ok(SaveConfigResult {
             success: false,
-            message: format!("Cannot write Claude Desktop config: {e}. Try running as Administrator."),
+            message: format!(
+                "Cannot write Claude Desktop config: {e}. Try running as Administrator."
+            ),
             config_path: config_path.to_string_lossy().into(),
             server_path: server_path.to_string_lossy().into(),
         });
@@ -247,7 +288,10 @@ pub async fn remove_config(install_dir: String) -> Result<RemoveResult, String> 
     let dir = PathBuf::from(&install_dir);
     let config_path = default_config_path();
     if let Err(e) = remove_confluence_entry(&config_path) {
-        return Ok(RemoveResult { success: false, message: format!("Failed to update config: {e}") });
+        return Ok(RemoveResult {
+            success: false,
+            message: format!("Failed to update config: {e}"),
+        });
     }
     let server_path = dir.join(crate::installer::SERVER_BINARY_NAME);
     let _ = std::fs::remove_file(&server_path);
@@ -401,7 +445,9 @@ fn config_from_entry(entry: ConfluenceEntry, timeout: Duration) -> Config {
 #[tauri::command]
 pub async fn test_live_connection() -> Result<LiveTestResult, String> {
     let existing = read_config(&default_config_path()).map_err(|e| e.to_string())?;
-    let entry = existing.confluence.ok_or_else(|| "Not configured yet.".to_string())?;
+    let entry = existing
+        .confluence
+        .ok_or_else(|| "Not configured yet.".to_string())?;
 
     let cfg = config_from_entry(entry, Duration::from_secs(10));
 
@@ -410,7 +456,11 @@ pub async fn test_live_connection() -> Result<LiveTestResult, String> {
     match client.list_spaces(Some("global"), 5, "").await {
         Ok(data) => {
             let latency_ms = started.elapsed().as_millis() as u64;
-            let count = data.pointer("/results").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+            let count = data
+                .pointer("/results")
+                .and_then(|v| v.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
             Ok(LiveTestResult {
                 success: true,
                 message: format!("OK · {count} space(s) · {latency_ms} ms"),
@@ -438,7 +488,10 @@ pub async fn copy_diagnostics() -> Result<String, String> {
 
     let mut md = String::new();
     md.push_str("# Confluence Connect — diagnostics\n\n");
-    md.push_str(&format!("## Recent tool calls ({} rows, newest last)\n\n", history.len().min(100)));
+    md.push_str(&format!(
+        "## Recent tool calls ({} rows, newest last)\n\n",
+        history.len().min(100)
+    ));
     md.push_str("| ts | tool | args | tokens | status |\n|---|---|---|---|---|\n");
     for r in history.iter().rev().take(100).rev() {
         md.push_str(&format!(
@@ -452,7 +505,10 @@ pub async fn copy_diagnostics() -> Result<String, String> {
     }
     md.push_str("\n## Recent errors\n\n");
     for e in errors.iter().take(20) {
-        md.push_str(&format!("- `{}` · **{}** · {}: {}\n", e.ts, e.tool, e.status, e.message));
+        md.push_str(&format!(
+            "- `{}` · **{}** · {}: {}\n",
+            e.ts, e.tool, e.status, e.message
+        ));
     }
     md.push_str(
         "\n---\nPlease analyze usage patterns and suggest ways to reduce token usage, \
@@ -462,14 +518,17 @@ pub async fn copy_diagnostics() -> Result<String, String> {
     arboard::Clipboard::new()
         .and_then(|mut cb| cb.set_text(md.clone()))
         .map_err(|e| format!("Clipboard error: {e}"))?;
-    Ok(format!("Copied {} chars to clipboard — paste into Claude Desktop.", md.len()))
+    Ok(format!(
+        "Copied {} chars to clipboard — paste into Claude Desktop.",
+        md.len()
+    ))
 }
 
 #[tauri::command]
 pub async fn open_claude_log() -> Result<(), String> {
     // Windows: %APPDATA%\Claude\logs\
-    let appdata = std::env::var_os("APPDATA")
-        .ok_or_else(|| "APPDATA env var not set".to_string())?;
+    let appdata =
+        std::env::var_os("APPDATA").ok_or_else(|| "APPDATA env var not set".to_string())?;
     let logs = PathBuf::from(appdata).join("Claude").join("logs");
     if !logs.exists() {
         return Err(format!("Log folder not found at {}", logs.display()));
@@ -522,7 +581,9 @@ fn format_error_chain(err: &ConfluenceError) -> String {
 }
 
 fn url_host(s: &str) -> Option<String> {
-    url::Url::parse(s.trim()).ok().and_then(|u| u.host_str().map(String::from))
+    url::Url::parse(s.trim())
+        .ok()
+        .and_then(|u| u.host_str().map(String::from))
 }
 
 /// Escape pipe characters so they don't break markdown table column layout.
@@ -586,7 +647,10 @@ mod tests {
 
     #[test]
     fn format_error_chain_adds_timeout_hint() {
-        let err = ConfluenceError::Http { status: 0, message: "request timed out after 15s".into() };
+        let err = ConfluenceError::Http {
+            status: 0,
+            message: "request timed out after 15s".into(),
+        };
         let out = format_error_chain(&err);
         assert!(out.contains("Connection timed out"), "got: {out}");
     }

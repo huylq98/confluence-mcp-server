@@ -2,14 +2,27 @@ use regex::Regex;
 
 pub fn strip_html(html: &str) -> String {
     let mut text = html.to_string();
-    text = Regex::new(r"(?i)<br\s*/?>").unwrap().replace_all(&text, "\n").into_owned();
-    text = Regex::new(r"(?i)</(p|div|h[1-6]|li|tr)>").unwrap().replace_all(&text, "\n").into_owned();
-    text = Regex::new(r"<[^>]+>").unwrap().replace_all(&text, "").into_owned();
-    text = text.replace("&nbsp;", " ")
-               .replace("&amp;", "&")
-               .replace("&lt;", "<")
-               .replace("&gt;", ">");
-    text = Regex::new(r"\n{3,}").unwrap().replace_all(&text, "\n\n").into_owned();
+    text = Regex::new(r"(?i)<br\s*/?>")
+        .unwrap()
+        .replace_all(&text, "\n")
+        .into_owned();
+    text = Regex::new(r"(?i)</(p|div|h[1-6]|li|tr)>")
+        .unwrap()
+        .replace_all(&text, "\n")
+        .into_owned();
+    text = Regex::new(r"<[^>]+>")
+        .unwrap()
+        .replace_all(&text, "")
+        .into_owned();
+    text = text
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">");
+    text = Regex::new(r"\n{3,}")
+        .unwrap()
+        .replace_all(&text, "\n\n")
+        .into_owned();
     text.trim().to_string()
 }
 

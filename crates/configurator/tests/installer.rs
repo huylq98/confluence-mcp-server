@@ -1,4 +1,4 @@
-use configurator::installer::{probe_writable, default_install_dir, resolve_install_dir};
+use configurator::installer::{default_install_dir, probe_writable, resolve_install_dir};
 use tempfile::TempDir;
 
 #[test]
@@ -39,5 +39,8 @@ fn default_install_dir_uses_library_application_support_on_mac() {
         s.contains("Library/Application Support"),
         "expected Library/Application Support in path: {s}"
     );
-    assert!(s.ends_with("ConfluenceConnect"), "expected ConfluenceConnect suffix in: {s}");
+    assert!(
+        s.ends_with("ConfluenceConnect"),
+        "expected ConfluenceConnect suffix in: {s}"
+    );
 }

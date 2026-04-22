@@ -1,6 +1,9 @@
 use crate::pac::{looks_like_pac_url, PacResolver};
 use crate::{Config, ConfluenceError};
-use reqwest::{header::{HeaderMap, HeaderValue, AUTHORIZATION, ACCEPT}, Method, StatusCode};
+use reqwest::{
+    header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION},
+    Method, StatusCode,
+};
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::Duration;
@@ -37,10 +40,12 @@ impl Client {
             .timeout(config.timeout);
 
         if let Some(bundle_path) = &config.ca_bundle {
-            let pem = std::fs::read(bundle_path)
-                .map_err(|e| ConfluenceError::Config(format!("cannot read CA bundle at {bundle_path}: {e}")))?;
-            let cert = reqwest::Certificate::from_pem(&pem)
-                .map_err(|e| ConfluenceError::Config(format!("invalid CA bundle at {bundle_path}: {e}")))?;
+            let pem = std::fs::read(bundle_path).map_err(|e| {
+                ConfluenceError::Config(format!("cannot read CA bundle at {bundle_path}: {e}"))
+            })?;
+            let cert = reqwest::Certificate::from_pem(&pem).map_err(|e| {
+                ConfluenceError::Config(format!("invalid CA bundle at {bundle_path}: {e}"))
+            })?;
             builder = builder.add_root_certificate(cert);
         }
 
@@ -48,15 +53,18 @@ impl Client {
             let trimmed = p.trim();
             if !trimmed.is_empty() {
                 if looks_like_pac_url(trimmed) {
-                    let resolver = Arc::new(
-                        PacResolver::new(trimmed.to_string())
-                            .map_err(|e| ConfluenceError::Config(format!("PAC setup failed for '{trimmed}': {e}")))?,
-                    );
+                    let resolver =
+                        Arc::new(PacResolver::new(trimmed.to_string()).map_err(|e| {
+                            ConfluenceError::Config(format!(
+                                "PAC setup failed for '{trimmed}': {e}"
+                            ))
+                        })?);
                     let proxy = reqwest::Proxy::custom(move |url| resolver.resolve(url));
                     builder = builder.proxy(proxy);
                 } else {
-                    let proxy = reqwest::Proxy::all(trimmed)
-                        .map_err(|e| ConfluenceError::Config(format!("invalid proxy URL '{trimmed}': {e}")))?;
+                    let proxy = reqwest::Proxy::all(trimmed).map_err(|e| {
+                        ConfluenceError::Config(format!("invalid proxy URL '{trimmed}': {e}"))
+                    })?;
                     builder = builder.proxy(proxy);
                 }
             }
@@ -71,14 +79,23 @@ impl Client {
         })
     }
 
-    async fn get_json(&self, path: &str, query: &[(&str, String)]) -> Result<Value, ConfluenceError> {
+    async fn get_json(
+        &self,
+        path: &str,
+        query: &[(&str, String)],
+    ) -> Result<Value, ConfluenceError> {
         let url = format!("{}{}", self.base_url, path);
         let mut attempt = 0u32;
         let max_retries = 3u32;
 
         loop {
             let _permit = self.sem.acquire().await.unwrap();
-            let response = self.http.request(Method::GET, &url).query(query).send().await?;
+            let response = self
+                .http
+                .request(Method::GET, &url)
+                .query(query)
+                .send()
+                .await?;
             drop(_permit);
 
             let status = response.status();
@@ -95,57 +112,107 @@ impl Client {
                 continue;
             }
 
-            let seraph = response.headers().get("X-Seraph-LoginReason")
-                .and_then(|v| v.to_str().ok()).map(String::from);
-            let auser = response.headers().get("X-AUSERNAME")
-                .and_then(|v| v.to_str().ok()).map(String::from);
+            let seraph = response
+                .headers()
+                .get("X-Seraph-LoginReason")
+                .and_then(|v| v.to_str().ok())
+                .map(String::from);
+            let auser = response
+                .headers()
+                .get("X-AUSERNAME")
+                .and_then(|v| v.to_str().ok())
+                .map(String::from);
             let body = response.text().await.unwrap_or_default();
             let mut parts = Vec::new();
-            if let Some(s) = seraph { parts.push(format!("X-Seraph-LoginReason={s}")); }
-            if let Some(a) = auser { parts.push(format!("X-AUSERNAME={a}")); }
-            let prefix = if parts.is_empty() { String::new() } else { format!("[{}] ", parts.join(", ")) };
+            if let Some(s) = seraph {
+                parts.push(format!("X-Seraph-LoginReason={s}"));
+            }
+            if let Some(a) = auser {
+                parts.push(format!("X-AUSERNAME={a}"));
+            }
+            let prefix = if parts.is_empty() {
+                String::new()
+            } else {
+                format!("[{}] ", parts.join(", "))
+            };
             let body_snippet: String = body.chars().take(300).collect();
             let message = if body_snippet.trim().is_empty() {
                 format!("{prefix}{}", status.canonical_reason().unwrap_or(""))
             } else {
                 format!("{prefix}{body_snippet}")
             };
-            return Err(ConfluenceError::Http { status: status.as_u16(), message });
+            return Err(ConfluenceError::Http {
+                status: status.as_u16(),
+                message,
+            });
         }
     }
 
-    pub async fn list_spaces(&self, space_type: Option<&str>, limit: u32, expand: &str) -> Result<Value, ConfluenceError> {
+    pub async fn list_spaces(
+        &self,
+        space_type: Option<&str>,
+        limit: u32,
+        expand: &str,
+    ) -> Result<Value, ConfluenceError> {
         let mut q: Vec<(&str, String)> = vec![("limit", limit.to_string())];
-        if let Some(t) = space_type { q.push(("type", t.into())); }
-        if !expand.is_empty() { q.push(("expand", expand.into())); }
+        if let Some(t) = space_type {
+            q.push(("type", t.into()));
+        }
+        if !expand.is_empty() {
+            q.push(("expand", expand.into()));
+        }
         self.get_json("/rest/api/space", &q).await
     }
 
-    pub async fn search(&self, cql: &str, limit: u32, expand: &str) -> Result<Value, ConfluenceError> {
+    pub async fn search(
+        &self,
+        cql: &str,
+        limit: u32,
+        expand: &str,
+    ) -> Result<Value, ConfluenceError> {
         let mut q: Vec<(&str, String)> = vec![("cql", cql.into()), ("limit", limit.to_string())];
-        if !expand.is_empty() { q.push(("expand", expand.into())); }
+        if !expand.is_empty() {
+            q.push(("expand", expand.into()));
+        }
         self.get_json("/rest/api/content/search", &q).await
     }
 
     pub async fn get_page(&self, page_id: &str, expand: &str) -> Result<Value, ConfluenceError> {
         let path = format!("/rest/api/content/{page_id}");
-        let q: Vec<(&str, String)> = if expand.is_empty() { vec![] } else { vec![("expand", expand.into())] };
+        let q: Vec<(&str, String)> = if expand.is_empty() {
+            vec![]
+        } else {
+            vec![("expand", expand.into())]
+        };
         self.get_json(&path, &q).await
     }
 
-    pub async fn get_page_by_title(&self, space_key: &str, title: &str, expand: &str) -> Result<Value, ConfluenceError> {
-        let mut q: Vec<(&str, String)> = vec![
-            ("spaceKey", space_key.into()),
-            ("title", title.into()),
-        ];
-        if !expand.is_empty() { q.push(("expand", expand.into())); }
+    pub async fn get_page_by_title(
+        &self,
+        space_key: &str,
+        title: &str,
+        expand: &str,
+    ) -> Result<Value, ConfluenceError> {
+        let mut q: Vec<(&str, String)> =
+            vec![("spaceKey", space_key.into()), ("title", title.into())];
+        if !expand.is_empty() {
+            q.push(("expand", expand.into()));
+        }
         self.get_json("/rest/api/content", &q).await
     }
 
-    pub async fn get_child(&self, page_id: &str, child_type: &str, expand: &str, limit: u32) -> Result<Value, ConfluenceError> {
+    pub async fn get_child(
+        &self,
+        page_id: &str,
+        child_type: &str,
+        expand: &str,
+        limit: u32,
+    ) -> Result<Value, ConfluenceError> {
         let path = format!("/rest/api/content/{page_id}/child/{child_type}");
         let mut q: Vec<(&str, String)> = vec![("limit", limit.to_string())];
-        if !expand.is_empty() { q.push(("expand", expand.into())); }
+        if !expand.is_empty() {
+            q.push(("expand", expand.into()));
+        }
         self.get_json(&path, &q).await
     }
 }

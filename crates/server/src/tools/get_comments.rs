@@ -3,19 +3,36 @@ use serde_json::Value;
 
 pub fn format(response: &Value) -> String {
     let empty = vec![];
-    let comments = response.pointer("/results").and_then(Value::as_array).unwrap_or(&empty);
+    let comments = response
+        .pointer("/results")
+        .and_then(Value::as_array)
+        .unwrap_or(&empty);
     if comments.is_empty() {
         return "No comments on this page.".into();
     }
     let mut lines = vec![format!("## Comments ({})\n", comments.len())];
     for c in comments {
-        let author = c.pointer("/version/by/displayName").and_then(Value::as_str).unwrap_or("Unknown");
-        let when = c.pointer("/version/when").and_then(Value::as_str).unwrap_or("");
-        let location = c.pointer("/extensions/location").and_then(Value::as_str).unwrap_or("footer");
-        let raw = c.pointer("/body/view/value").and_then(Value::as_str).unwrap_or("");
+        let author = c
+            .pointer("/version/by/displayName")
+            .and_then(Value::as_str)
+            .unwrap_or("Unknown");
+        let when = c
+            .pointer("/version/when")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let location = c
+            .pointer("/extensions/location")
+            .and_then(Value::as_str)
+            .unwrap_or("footer");
+        let raw = c
+            .pointer("/body/view/value")
+            .and_then(Value::as_str)
+            .unwrap_or("");
         let body = strip_html(raw);
         let mut entry = format!("**{author}** ({location})");
-        if !when.is_empty() { entry.push_str(&format!(" — {when}")); }
+        if !when.is_empty() {
+            entry.push_str(&format!(" — {when}"));
+        }
         entry.push_str(&format!("\n{body}"));
         lines.push(entry);
     }

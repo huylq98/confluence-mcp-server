@@ -27,11 +27,21 @@ fn install_dir_candidates() -> Vec<PathBuf> {
     }
     #[cfg(target_os = "macos")]
     if let Some(d) = std::env::var_os("HOME") {
-        v.push(PathBuf::from(d).join("Library").join("Application Support").join("ConfluenceConnect"));
+        v.push(
+            PathBuf::from(d)
+                .join("Library")
+                .join("Application Support")
+                .join("ConfluenceConnect"),
+        );
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     if let Some(d) = std::env::var_os("HOME") {
-        v.push(PathBuf::from(d).join(".local").join("share").join("ConfluenceConnect"));
+        v.push(
+            PathBuf::from(d)
+                .join(".local")
+                .join("share")
+                .join("ConfluenceConnect"),
+        );
     }
     if v.is_empty() {
         v.push(PathBuf::from("ConfluenceConnect"));
@@ -48,7 +58,10 @@ pub fn default_install_dir() -> PathBuf {
             return c.clone();
         }
     }
-    candidates.into_iter().next().expect("at least one candidate")
+    candidates
+        .into_iter()
+        .next()
+        .expect("at least one candidate")
 }
 
 pub fn resolve_install_dir(override_path: Option<String>) -> PathBuf {

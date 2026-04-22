@@ -1,6 +1,8 @@
-use configurator::claude_config::{read_config, write_confluence_entry, remove_confluence_entry, ConfluenceEntry};
-use tempfile::TempDir;
+use configurator::claude_config::{
+    read_config, remove_confluence_entry, write_confluence_entry, ConfluenceEntry,
+};
 use std::fs;
+use tempfile::TempDir;
 
 fn tmp(initial: Option<&str>) -> (TempDir, std::path::PathBuf) {
     let dir = TempDir::new().unwrap();
@@ -13,7 +15,8 @@ fn tmp(initial: Option<&str>) -> (TempDir, std::path::PathBuf) {
 
 #[test]
 fn reads_existing_confluence_entry() {
-    let (_dir, path) = tmp(Some(r#"{
+    let (_dir, path) = tmp(Some(
+        r#"{
         "mcpServers": {
             "confluence": {
                 "command": "C:\\\\app\\\\server.exe",
@@ -21,7 +24,8 @@ fn reads_existing_confluence_entry() {
                 "env": {"CONFLUENCE_URL": "https://wiki.example.com", "CONFLUENCE_TOKEN": "t"}
             }
         }
-    }"#));
+    }"#,
+    ));
     let existing = read_config(&path).unwrap();
     assert!(existing.confluence.is_some());
     let c = existing.confluence.unwrap();
@@ -31,11 +35,13 @@ fn reads_existing_confluence_entry() {
 
 #[test]
 fn write_preserves_other_mcp_servers() {
-    let (_dir, path) = tmp(Some(r#"{
+    let (_dir, path) = tmp(Some(
+        r#"{
         "mcpServers": {
             "other": {"command": "C:\\\\other.exe", "args": []}
         }
-    }"#));
+    }"#,
+    ));
     let entry = ConfluenceEntry {
         command: r"C:\app\server.exe".into(),
         url: "https://wiki".into(),
@@ -50,7 +56,12 @@ fn write_preserves_other_mcp_servers() {
     let raw = fs::read_to_string(&path).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert!(parsed.pointer("/mcpServers/other").is_some());
-    assert_eq!(parsed.pointer("/mcpServers/confluence/env/CONFLUENCE_TOKEN").unwrap(), "t");
+    assert_eq!(
+        parsed
+            .pointer("/mcpServers/confluence/env/CONFLUENCE_TOKEN")
+            .unwrap(),
+        "t"
+    );
 }
 
 #[test]
@@ -59,7 +70,8 @@ fn malformed_config_is_backed_up_and_replaced() {
     let entry = ConfluenceEntry {
         command: r"C:\server.exe".into(),
         url: "https://wiki".into(),
-        username: None, password: None,
+        username: None,
+        password: None,
         token: Some("t".into()),
         ssl_verify: true,
         proxy_url: None,
@@ -68,7 +80,8 @@ fn malformed_config_is_backed_up_and_replaced() {
 
     // A malformed backup file should exist alongside
     let dir = path.parent().unwrap();
-    let backups: Vec<_> = fs::read_dir(dir).unwrap()
+    let backups: Vec<_> = fs::read_dir(dir)
+        .unwrap()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_name().to_string_lossy().contains("malformed"))
         .collect();
@@ -77,10 +90,13 @@ fn malformed_config_is_backed_up_and_replaced() {
 
 #[test]
 fn remove_deletes_entry() {
-    let (_dir, path) = tmp(Some(r#"{"mcpServers": {"confluence": {"command": "x"}, "other": {"command": "y"}}}"#));
+    let (_dir, path) = tmp(Some(
+        r#"{"mcpServers": {"confluence": {"command": "x"}, "other": {"command": "y"}}}"#,
+    ));
     remove_confluence_entry(&path).unwrap();
 
-    let parsed: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     assert!(parsed.pointer("/mcpServers/confluence").is_none());
     assert!(parsed.pointer("/mcpServers/other").is_some());
 }
@@ -94,5 +110,8 @@ fn default_config_path_on_mac_uses_library_application_support() {
         s.contains("Library/Application Support/Claude"),
         "expected Library/Application Support/Claude in: {s}"
     );
-    assert!(s.ends_with("claude_desktop_config.json"), "expected claude_desktop_config.json suffix in: {s}");
+    assert!(
+        s.ends_with("claude_desktop_config.json"),
+        "expected claude_desktop_config.json suffix in: {s}"
+    );
 }

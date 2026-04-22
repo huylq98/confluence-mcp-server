@@ -30,8 +30,14 @@ mod tests {
 
     #[test]
     fn http_error_formats_status_and_message() {
-        let err = ConfluenceError::Http { status: 404, message: "Not found".into() };
-        assert_eq!(err.to_string(), "Confluence API error (HTTP 404): Not found");
+        let err = ConfluenceError::Http {
+            status: 404,
+            message: "Not found".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "Confluence API error (HTTP 404): Not found"
+        );
         assert_eq!(err.status_code(), 404);
     }
 
