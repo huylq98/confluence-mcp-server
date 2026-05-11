@@ -408,7 +408,7 @@ checksum = "75984efb6ed102a0d42db99afb6c1948f0380d1d91808d5529916e6c08b49d8d"
 
 [[package]]
 name = "configurator"
-version = "0.2.1"
+version = "0.3.2"
 dependencies = [
  "arboard",
  "chrono",
@@ -431,7 +431,7 @@ dependencies = [
 
 [[package]]
 name = "confluence-core"
-version = "0.2.1"
+version = "0.3.2"
 dependencies = [
  "base64 0.22.1",
  "regex",
@@ -3618,7 +3618,7 @@ dependencies = [
 
 [[package]]
 name = "server"
-version = "0.2.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "confluence-core",
