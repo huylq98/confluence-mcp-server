@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 #[cfg(windows)]
 pub const SERVER_BINARY_NAME: &str = "confluence-mcp-server.exe";
@@ -84,7 +85,7 @@ pub fn probe_writable(dir: &Path) -> io::Result<()> {
 pub fn extract_server(dir: &Path) -> io::Result<PathBuf> {
     fs::create_dir_all(dir)?;
     let target = dir.join(SERVER_BINARY_NAME);
-    fs::write(&target, EMBEDDED_SERVER)?;
+    write_server_binary(&target)?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -94,3 +95,56 @@ pub fn extract_server(dir: &Path) -> io::Result<PathBuf> {
     }
     Ok(target)
 }
+
+/// Writes the embedded server bytes to `target`. On Windows, a running `.exe`
+/// is locked by the loader (`ERROR_SHARING_VIOLATION`), so if Claude Desktop
+/// already launched a previous build of the server the first write will fail.
+/// In that case we kill any running instance and retry while Windows releases
+/// the image-section handle.
+fn write_server_binary(target: &Path) -> io::Result<()> {
+    match fs::write(target, EMBEDDED_SERVER) {
+        Ok(()) => return Ok(()),
+        Err(e) if !is_sharing_violation(&e) => return Err(e),
+        Err(_) => {}
+    }
+    kill_running_server();
+    let mut last = io::Error::new(io::ErrorKind::Other, "no retry attempts ran");
+    for attempt in 1..=5u64 {
+        std::thread::sleep(Duration::from_millis(150 * attempt));
+        match fs::write(target, EMBEDDED_SERVER) {
+            Ok(()) => return Ok(()),
+            Err(e) => last = e,
+        }
+    }
+    Err(last)
+}
+
+#[cfg(windows)]
+fn is_sharing_violation(e: &io::Error) -> bool {
+    // ERROR_SHARING_VIOLATION
+    e.raw_os_error() == Some(32)
+}
+
+#[cfg(not(windows))]
+fn is_sharing_violation(_e: &io::Error) -> bool {
+    false
+}
+
+#[cfg(windows)]
+fn kill_running_server() {
+    use sysinfo::{ProcessesToUpdate, System};
+    let mut sys = System::new();
+    sys.refresh_processes(ProcessesToUpdate::All, true);
+    for proc in sys.processes().values() {
+        if proc
+            .name()
+            .to_string_lossy()
+            .eq_ignore_ascii_case(SERVER_BINARY_NAME)
+        {
+            let _ = proc.kill();
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn kill_running_server() {}

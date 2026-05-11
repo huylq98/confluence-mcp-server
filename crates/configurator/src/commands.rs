@@ -240,11 +240,26 @@ pub async fn save_config(args: SaveConfigArgs) -> Result<SaveConfigResult, Strin
 
     let server_path = match extract_server(&dir) {
         Ok(p) => p,
-        Err(e) => return Ok(SaveConfigResult {
-            success: false,
-            message: format!("Failed to extract server binary: {e}. Your antivirus may be blocking this — add an exception or choose a different folder."),
-            config_path: String::new(), server_path: String::new(),
-        }),
+        Err(e) => {
+            let message = if e.raw_os_error() == Some(32) {
+                format!(
+                    "Failed to extract server binary: the previous server is still running \
+                     and has the file locked. Quit Claude Desktop completely (check the \
+                     system tray) and try Save again. ({e})"
+                )
+            } else {
+                format!(
+                    "Failed to extract server binary: {e}. Your antivirus may be blocking \
+                     this — add an exception or choose a different folder."
+                )
+            };
+            return Ok(SaveConfigResult {
+                success: false,
+                message,
+                config_path: String::new(),
+                server_path: String::new(),
+            });
+        }
     };
 
     let entry = ConfluenceEntry {
