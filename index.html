@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Confluence Connect — a free tool for Windows and Mac that lets Claude read your Confluence pages. No runtime required." />
+  <title>Confluence Connect — Ask Claude about your Confluence pages</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:          #F3EEE2;
+      --bg-2:        #EAE3D1;
+      --paper:       #FBF8EF;
+      --ink:         #141414;
+      --ink-soft:    #534F46;
+      --ink-mute:    #8A8477;
+      --line:        rgba(20, 20, 20, 0.12);
+      --line-strong: rgba(20, 20, 20, 0.24);
+      --accent:      #2B47D6;
+      --accent-deep: #1C30A8;
+      --accent-soft: rgba(43, 71, 214, 0.14);
+      --radius:      3px;
+      --step-ease:   cubic-bezier(0.65, 0, 0.35, 1);
+      --serif:  "Fraunces", "Iowan Old Style", Georgia, serif;
+      --sans:   "IBM Plex Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
+      --mono:   "IBM Plex Mono", ui-monospace, "Consolas", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background:
+        radial-gradient(1200px 600px at 88% -10%, #EFDFC0 0%, transparent 55%),
+        radial-gradient(900px 700px at -10% 110%, #E9E4D4 0%, transparent 60%),
+        var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-feature-settings: "ss01", "cv11";
+    }
+
+    /* Grain overlay — identical to app */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.07 0 0 0 0 0.05 0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+      opacity: 0.22;
+      mix-blend-mode: multiply;
+    }
+
+    /* Nav */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(243, 238, 226, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 28px;
+    }
+
+    .nav-inner {
+      max-width: 700px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .mark {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 0.14em;
+      color: var(--ink);
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    .mark svg { color: var(--accent); display: block; flex-shrink: 0; }
+
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: var(--radius);
+      font-family: var(--sans);
+      font-size: 12.5px;
+      font-weight: 500;
+      text-decoration: none;
+      letter-spacing: -0.01em;
+      transition: background 0.18s var(--step-ease), box-shadow 0.18s var(--step-ease);
+    }
+
+    .nav-cta:hover {
+      background: var(--accent-deep);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .nav-cta-arrow {
+      font-family: var(--mono);
+      font-weight: 400;
+      opacity: 0.75;
+      transition: transform 0.22s var(--step-ease);
+    }
+
+    .nav-cta:hover .nav-cta-arrow { transform: translateX(2px); }
+
+    /* Page container */
+    .page {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 0 28px;
+    }
+
+    /* Hero */
+    .hero {
+      padding: 88px 0 80px;
+    }
+
+    .kicker {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--ink-mute);
+      margin-bottom: 22px;
+    }
+
+    .hero-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(3rem, 8vw, 5.2rem);
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+      font-variation-settings: "opsz" 96, "SOFT" 30, "WONK" 0;
+      margin-bottom: 28px;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--ink-soft);
+      font-variation-settings: "opsz" 96, "SOFT" 70, "WONK" 1;
+    }
+
+    .hero-lede {
+      font-size: 17px;
+      color: var(--ink-soft);
+      max-width: 44ch;
+      line-height: 1.55;
+      margin-bottom: 40px;
+    }
+
+    /* Download row */
+    .download-row {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .download-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-dl {
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      font-family: var(--sans);
+      font-size: 13.5px;
+      font-weight: 500;
+      text-decoration: none;
+      letter-spacing: -0.01em;
+      transition: all 0.18s var(--step-ease);
+    }
+
+    .btn-dl-arrow {
+      font-family: var(--mono);
+      font-weight: 400;
+      opacity: 0.7;
+      transition: transform 0.22s var(--step-ease);
+    }
+
+    .btn-dl:hover .btn-dl-arrow { transform: translateX(3px); opacity: 1; }
+
+    .btn-primary-dl {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+    }
+
+    .btn-primary-dl:hover {
+      background: var(--accent-deep);
+      border-color: var(--accent-deep);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .btn-secondary-dl {
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid var(--line-strong);
+    }
+
+    .btn-secondary-dl:hover {
+      background: var(--bg-2);
+      border-color: var(--ink-soft);
+    }
+
+    .dl-note {
+      font-size: 11px;
+      color: var(--ink-mute);
+      max-width: 28ch;
+      line-height: 1.45;
+    }
+
+    .version-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-mute);
+      letter-spacing: 0.04em;
+      margin-top: 20px;
+    }
+
+    /* Divider */
+    .rule { height: 1px; background: var(--line); }
+
+    /* Sections */
+    .section { padding: 72px 0; }
+
+    .section-kicker {
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--ink-mute);
+      margin-bottom: 28px;
+    }
+
+    .section-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 2.5rem;
+      line-height: 1.06;
+      letter-spacing: -0.015em;
+      font-variation-settings: "opsz" 72, "SOFT" 30, "WONK" 0;
+      margin-bottom: 40px;
+    }
+
+    .section-title em {
+      font-style: italic;
+      color: var(--ink-soft);
+      font-variation-settings: "opsz" 72, "SOFT" 70, "WONK" 1;
+    }
+
+    /* Steps list */
+    .steps { display: flex; flex-direction: column; }
+
+    .step-row {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 16px;
+      padding: 24px 0;
+      border-top: 1px solid var(--line);
+      align-items: start;
+    }
+
+    .step-row:last-child { border-bottom: 1px solid var(--line); }
+
+    .step-num {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+      padding-top: 3px;
+    }
+
+    .step-body h3 {
+      font-family: var(--sans);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .step-body p {
+      font-size: 14px;
+      color: var(--ink-soft);
+      line-height: 1.55;
+    }
+
+    .step-body code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      padding: 1px 5px;
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      color: var(--ink-soft);
+    }
+
+    /* Caps and req lists */
+    .item-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .item-list li {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 12px;
+      padding: 16px 0;
+      border-top: 1px solid var(--line);
+      font-size: 15px;
+      color: var(--ink);
+      line-height: 1.5;
+      align-items: start;
+    }
+
+    .item-list li:last-child { border-bottom: 1px solid var(--line); }
+
+    .item-list li::before {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent);
+      padding-top: 2px;
+    }
+
+    .caps-list li::before { content: "→"; }
+
+    /* Example prompts — quote-card list */
+    .examples {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .example {
+      padding: 18px 22px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-left: 2px solid var(--accent);
+      border-radius: var(--radius);
+      font-family: var(--serif);
+      font-size: 17px;
+      font-style: italic;
+      line-height: 1.45;
+      color: var(--ink);
+      font-variation-settings: "opsz" 24, "SOFT" 60, "WONK" 0;
+    }
+
+    .example::before {
+      content: "“";
+      font-family: var(--serif);
+      font-size: 22px;
+      color: var(--accent);
+      margin-right: 4px;
+      vertical-align: -2px;
+    }
+
+    .example::after {
+      content: "”";
+      font-family: var(--serif);
+      font-size: 22px;
+      color: var(--accent);
+      margin-left: 2px;
+      vertical-align: -2px;
+    }
+
+    .req-list li {
+      font-size: 14px;
+      color: var(--ink-soft);
+      padding: 13px 0;
+      align-items: center;
+    }
+
+    .req-list li::before { content: "✓"; font-size: 11px; font-weight: 500; }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 32px 28px;
+    }
+
+    .footer-inner {
+      max-width: 700px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+
+    .footer-links a {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--ink-mute);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .footer-links a:hover { color: var(--ink); }
+
+    .footer-credit {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--ink-mute);
+    }
+
+    /* Page-load stagger */
+    .hero > * {
+      animation: fadeUp 0.55s var(--step-ease) both;
+    }
+    .hero > *:nth-child(1) { animation-delay: 0.04s; }
+    .hero > *:nth-child(2) { animation-delay: 0.10s; }
+    .hero > *:nth-child(3) { animation-delay: 0.17s; }
+    .hero > *:nth-child(4) { animation-delay: 0.23s; }
+    .hero > *:nth-child(5) { animation-delay: 0.28s; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    ::selection { background: var(--accent); color: #fff; }
+
+    @media (max-width: 520px) {
+      .hero { padding: 60px 0 52px; }
+      .hero-title { font-size: 2.8rem; }
+      .section-title { font-size: 2rem; }
+      .nav { padding: 12px 20px; }
+      .page { padding: 0 20px; }
+      footer { padding: 28px 20px; }
+      .download-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="mark" href="/">
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+        <rect x="1" y="1" width="5" height="5" fill="currentColor" />
+        <rect x="8" y="1" width="5" height="5" fill="currentColor" opacity=".55" />
+        <rect x="1" y="8" width="5" height="5" fill="currentColor" opacity=".55" />
+        <rect x="8" y="8" width="5" height="5" fill="currentColor" opacity=".25" />
+      </svg>
+      <span>Confluence&nbsp;Connect</span>
+    </a>
+    <a class="nav-cta" id="nav-dl" href="https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.exe" target="_blank" rel="noopener noreferrer">
+      Download <span class="nav-cta-arrow">↓</span>
+    </a>
+  </div>
+</nav>
+
+<div class="page">
+
+  <section class="hero">
+    <p class="kicker">Free &nbsp;·&nbsp; Windows &amp; macOS &nbsp;·&nbsp; No runtime required</p>
+    <h1 class="hero-title">
+      Ask Claude about<br />
+      <em>your Confluence.</em>
+    </h1>
+    <p class="hero-lede">A one-time setup tool that connects Claude Desktop to your Confluence Server or Data Center.</p>
+    <div class="download-row" id="download-row">
+      <div class="download-card" id="card-win">
+        <a class="btn-dl btn-primary-dl" id="btn-win" href="https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.exe" target="_blank" rel="noopener noreferrer">
+          <span>Download for Windows</span>
+          <span class="btn-dl-arrow">→</span>
+        </a>
+        <p class="dl-note">Windows may warn about unknown publisher — click <strong>More info → Run anyway</strong></p>
+      </div>
+      <div class="download-card" id="card-mac">
+        <a class="btn-dl btn-secondary-dl" id="btn-mac" href="https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.pkg" target="_blank" rel="noopener noreferrer">
+          <span>Download for Mac</span>
+          <span class="btn-dl-arrow">→</span>
+        </a>
+        <p class="dl-note">Double-click the downloaded <code>.pkg</code> to install. If macOS asks, go to System Settings → Privacy &amp; Security → <strong>Open Anyway</strong></p>
+      </div>
+    </div>
+    <p class="version-tag">v0.3.2</p>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="section">
+    <p class="section-kicker">How it works</p>
+    <h2 class="section-title">Three steps.<br /><em>Under two minutes.</em></h2>
+    <div class="steps">
+      <div class="step-row">
+        <span class="step-num">01</span>
+        <div class="step-body">
+          <h3>Download &amp; run</h3>
+          <p>Download <code>ConfluenceConnect.exe</code> (Windows) or <code>ConfluenceConnect.pkg</code> (Mac) and run it. No runtime required.</p>
+        </div>
+      </div>
+      <div class="step-row">
+        <span class="step-num">02</span>
+        <div class="step-body">
+          <h3>Enter your credentials</h3>
+          <p>Paste your Confluence URL and a Personal Access Token (or username and password). Click <strong>Test connection</strong>, then <strong>Save &amp; finish</strong>.</p>
+        </div>
+      </div>
+      <div class="step-row">
+        <span class="step-num">03</span>
+        <div class="step-body">
+          <h3>Ask Claude</h3>
+          <p>Fully quit Claude Desktop and reopen it. Claude can now search and read your Confluence pages.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="section">
+    <p class="section-kicker">Capabilities</p>
+    <h2 class="section-title">What Claude<br /><em>can now do.</em></h2>
+    <ul class="item-list caps-list">
+      <li>Search pages with full-text or CQL queries across all spaces</li>
+      <li>Fetch any page by URL, title, or numeric ID</li>
+      <li>List all accessible Confluence spaces</li>
+      <li>Read page comments — inline and footer</li>
+      <li>List file attachments with download links</li>
+    </ul>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="section">
+    <p class="section-kicker">Try asking Claude</p>
+    <h2 class="section-title">Things to say<br /><em>once it's set up.</em></h2>
+    <div class="examples">
+      <p class="example">Find the on-call rotation page in Confluence and tell me who's on this week.</p>
+      <p class="example">Look up the deployment runbook for the payments service and summarize the rollback steps.</p>
+      <p class="example">What does the page titled "Release process" in the ENG space say?</p>
+      <p class="example">Read this page for me: &lt;paste a Confluence URL&gt;</p>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="section">
+    <p class="section-kicker">Requirements</p>
+    <h2 class="section-title">What you<br /><em>need.</em></h2>
+    <ul class="item-list req-list">
+      <li>Windows 10 or later, or macOS 12 (Monterey) or later</li>
+      <li>Claude Desktop (latest version)</li>
+      <li>Confluence Server or Data Center 7.x+</li>
+    </ul>
+  </section>
+
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="https://github.com/huylq98/confluence-mcp-server/blob/master/LICENSE">MIT License</a>
+      <a href="https://github.com/huylq98/confluence-mcp-server">GitHub</a>
+    </nav>
+    <span class="footer-credit">built by huylq98</span>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    if (!/Macintosh|MacIntel|MacPPC|Mac68K/i.test(navigator.userAgent)) return;
+    document.getElementById('btn-win').className = 'btn-dl btn-secondary-dl';
+    document.getElementById('btn-mac').className = 'btn-dl btn-primary-dl';
+    var row = document.getElementById('download-row');
+    row.insertBefore(document.getElementById('card-mac'), row.firstChild);
+    var nav = document.getElementById('nav-dl');
+    nav.href = 'https://github.com/huylq98/confluence-mcp-server/releases/latest/download/ConfluenceConnect.pkg';
+  }());
+</script>
+</body>
+</html>
